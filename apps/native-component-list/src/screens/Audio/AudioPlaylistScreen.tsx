@@ -1,5 +1,14 @@
-import { AudioSource, useAudioPlaylist, useAudioPlaylistStatus } from 'expo-audio';
-import React, { useState } from 'react';
+import {
+  AudioLockScreenOptions,
+  AudioMetadata,
+  AudioModule,
+  AudioSource,
+  useAudioPlayer,
+  useAudioPlaylist,
+  useAudioPlaylistStatus,
+} from 'expo-audio';
+import Checkbox from 'expo-checkbox';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 
 import { BodyText } from '../../components/BodyText';
@@ -56,11 +65,17 @@ function Button({
 
 export default function AudioPlaylistScreen() {
   const [addTrackIndex, setAddTrackIndex] = useState(0);
+  const [lockScreenControlsEnabled, setLockScreenControlsEnabled] = useState(false);
+  const [lockScreenOptions, setLockScreenOptions] = useState<AudioLockScreenOptions>({
+    showNextTrack: true,
+    showPreviousTrack: true,
+  });
 
   const playlist = useAudioPlaylist({
     sources: INITIAL_SOURCES,
     loop: 'none',
   });
+  const lockScreenPlayer = useAudioPlayer(null);
 
   const status = useAudioPlaylistStatus(playlist);
 
@@ -70,6 +85,51 @@ export default function AudioPlaylistScreen() {
     ? (currentSource.name ?? getTrackName(currentSource.uri ?? ''))
     : 'No track';
 
+  const lockScreenMetadata = useMemo<AudioMetadata>(
+    () => ({
+      title: currentTrackName,
+      artist: 'Expo Audio Playlist',
+    }),
+    [currentTrackName]
+  );
+
+  React.useEffect(() => {
+    AudioModule.setAudioModeAsync({
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+      playsInSilentMode: true,
+      allowsRecording: false,
+    }).catch((error: unknown) =>
+      console.warn(`Error calling setAudioModeAsync: ${JSON.stringify(error)}`)
+    );
+  }, []);
+
+  React.useEffect(() => {
+    if (!lockScreenControlsEnabled) {
+      return;
+    }
+
+    lockScreenPlayer.setActiveForLockScreen(true, lockScreenMetadata, lockScreenOptions);
+
+    return () => {
+      lockScreenPlayer.clearLockScreenControls();
+    };
+  }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenMetadata, lockScreenOptions]);
+
+  React.useEffect(() => {
+    const nextSubscription = lockScreenPlayer.addListener('onRemoteNextTrack', () => {
+      playlist.next();
+    });
+    const previousSubscription = lockScreenPlayer.addListener('onRemotePreviousTrack', () => {
+      playlist.previous();
+    });
+
+    return () => {
+      nextSubscription.remove();
+      previousSubscription.remove();
+    };
+  }, [lockScreenPlayer, playlist]);
+
   const handleAddTrack = () => {
     const sourceToAdd = ADDITIONAL_SOURCES[addTrackIndex % ADDITIONAL_SOURCES.length];
     playlist.add(sourceToAdd);
@@ -78,6 +138,25 @@ export default function AudioPlaylistScreen() {
 
   const handleClear = () => {
     playlist.clear();
+  };
+
+  const toggleLockScreenControls = () => {
+    const shouldEnable = !lockScreenControlsEnabled;
+
+    lockScreenPlayer.setActiveForLockScreen(shouldEnable, lockScreenMetadata, lockScreenOptions);
+
+    if (!shouldEnable) {
+      lockScreenPlayer.clearLockScreenControls();
+    }
+
+    setLockScreenControlsEnabled(shouldEnable);
+  };
+
+  const toggleLockScreenOption = (option: 'showNextTrack' | 'showPreviousTrack') => {
+    setLockScreenOptions((currentOptions) => ({
+      ...currentOptions,
+      [option]: !currentOptions[option],
+    }));
   };
 
   return (
@@ -129,6 +208,29 @@ export default function AudioPlaylistScreen() {
             (status.currentIndex >= sources.length - 1 && status.loop !== 'all')
           }
         />
+      </View>
+
+      <HeadingText>Lock Screen Controls</HeadingText>
+      <View style={styles.lockScreenControls}>
+        <Button
+          title={`${lockScreenControlsEnabled ? 'Disable' : 'Enable'} Lock Screen controls`}
+          onPress={toggleLockScreenControls}
+          disabled={sources.length === 0}
+        />
+        <View style={styles.optionRow}>
+          <Checkbox
+            value={lockScreenOptions.showPreviousTrack}
+            onValueChange={() => toggleLockScreenOption('showPreviousTrack')}
+          />
+          <Text style={styles.optionText}>Previous track</Text>
+        </View>
+        <View style={styles.optionRow}>
+          <Checkbox
+            value={lockScreenOptions.showNextTrack}
+            onValueChange={() => toggleLockScreenOption('showNextTrack')}
+          />
+          <Text style={styles.optionText}>Next track</Text>
+        </View>
       </View>
 
       <HeadingText>Playlist ({sources.length} tracks)</HeadingText>
@@ -305,6 +407,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     marginBottom: 20,
+  },
+  lockScreenControls: {
+    gap: 10,
+    marginBottom: 20,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  optionText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   statusContainer: {
     backgroundColor: Colors.greyBackground,
