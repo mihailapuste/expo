@@ -238,6 +238,27 @@ export type AudioEvents = {
      */
     onRemoteTogglePlayPause(): void;
     /**
+     * Fired when the seek forward command is triggered from the lock screen.
+     * @platform ios
+     */
+    onRemoteSeekForward(data: {
+        interval: number;
+    }): void;
+    /**
+     * Fired when the seek backward command is triggered from the lock screen.
+     * @platform ios
+     */
+    onRemoteSeekBackward(data: {
+        interval: number;
+    }): void;
+    /**
+     * Fired when the playback position is changed from the lock screen.
+     * @platform ios
+     */
+    onRemoteSeekTo(data: {
+        position: number;
+    }): void;
+    /**
      * Fired when the next track command is triggered from the lock screen.
      * @platform ios
      */

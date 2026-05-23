@@ -7,6 +7,9 @@ private enum AudioConstants {
   static let remotePlay = "onRemotePlay"
   static let remotePause = "onRemotePause"
   static let remoteTogglePlayPause = "onRemoteTogglePlayPause"
+  static let remoteSeekForward = "onRemoteSeekForward"
+  static let remoteSeekBackward = "onRemoteSeekBackward"
+  static let remoteSeekTo = "onRemoteSeekTo"
   static let remoteNextTrack = "onRemoteNextTrack"
   static let remotePreviousTrack = "onRemotePreviousTrack"
 }
@@ -187,6 +190,18 @@ public class AudioPlayer: SharedRef<AVPlayer>, Playable {
 
   func emitRemoteTogglePlayPause() {
     emit(event: AudioConstants.remoteTogglePlayPause)
+  }
+
+  func emitRemoteSeekForward(interval: Double) {
+    emit(event: AudioConstants.remoteSeekForward, payload: ["interval": interval])
+  }
+
+  func emitRemoteSeekBackward(interval: Double) {
+    emit(event: AudioConstants.remoteSeekBackward, payload: ["interval": interval])
+  }
+
+  func emitRemoteSeekTo(position: Double) {
+    emit(event: AudioConstants.remoteSeekTo, payload: ["position": position])
   }
 
   func updateStatus(with dict: [String: Any]) {

@@ -277,6 +277,7 @@ class MediaController {
         return .commandFailed
       }
 
+      player.emitRemoteSeekTo(position: event.positionTime)
       let seekTime = CMTime(seconds: event.positionTime, preferredTimescale: 1)
       player.ref.seek(to: seekTime)
 
@@ -290,6 +291,7 @@ class MediaController {
         return .commandFailed
       }
 
+      player.emitRemoteSeekForward(interval: event.interval)
       let currentTime = player.ref.currentTime()
       let seekTime = currentTime + CMTime(seconds: event.interval, preferredTimescale: 1)
       player.ref.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)
@@ -304,6 +306,7 @@ class MediaController {
         return .commandFailed
       }
 
+      player.emitRemoteSeekBackward(interval: event.interval)
       let currentTime = player.ref.currentTime()
       let seekTime = currentTime - CMTime(seconds: event.interval, preferredTimescale: 1)
       player.ref.seek(to: seekTime, toleranceBefore: .zero, toleranceAfter: .zero)

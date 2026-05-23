@@ -8,6 +8,7 @@ import {
   useAudioPlaylistStatus,
 } from 'expo-audio';
 import Checkbox from 'expo-checkbox';
+import Slider from '@react-native-community/slider';
 import React, { useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 
@@ -67,9 +68,12 @@ export default function AudioPlaylistScreen() {
   const [addTrackIndex, setAddTrackIndex] = useState(0);
   const [lockScreenControlsEnabled, setLockScreenControlsEnabled] = useState(false);
   const [lockScreenOptions, setLockScreenOptions] = useState<AudioLockScreenOptions>({
+    showSeekForward: true,
+    showSeekBackward: true,
     showNextTrack: true,
     showPreviousTrack: true,
   });
+  const [scrubPosition, setScrubPosition] = useState<number | null>(null);
 
   const playlist = useAudioPlaylist({
     sources: INITIAL_SOURCES,
@@ -79,12 +83,15 @@ export default function AudioPlaylistScreen() {
 
   const status = useAudioPlaylistStatus(playlist);
   const isPlayingRef = useRef(status.playing);
+  const currentTimeRef = useRef(status.currentTime);
+  const durationRef = useRef(status.duration);
 
   const sources = playlist.sources;
   const currentSource = sources[status.currentIndex];
   const currentTrackName = currentSource
     ? (currentSource.name ?? getTrackName(currentSource.uri ?? ''))
     : 'No track';
+  const displayedCurrentTime = scrubPosition ?? status.currentTime;
 
   const lockScreenMetadata = useMemo<AudioMetadata>(
     () => ({
@@ -108,6 +115,24 @@ export default function AudioPlaylistScreen() {
   React.useEffect(() => {
     isPlayingRef.current = status.playing;
   }, [status.playing]);
+
+  React.useEffect(() => {
+    currentTimeRef.current = status.currentTime;
+    durationRef.current = status.duration;
+  }, [status.currentTime, status.duration]);
+
+  const seekPlaylistTo = React.useCallback(
+    (position: number) => {
+      const duration = durationRef.current;
+      const boundedPosition =
+        duration > 0 ? Math.max(0, Math.min(position, duration)) : Math.max(0, position);
+
+      return playlist.seekTo(boundedPosition).catch((error: unknown) => {
+        console.warn(`Error seeking playlist: ${JSON.stringify(error)}`);
+      });
+    },
+    [playlist]
+  );
 
   React.useEffect(() => {
     if (!lockScreenControlsEnabled) {
@@ -134,6 +159,21 @@ export default function AudioPlaylistScreen() {
       'onRemoteTogglePlayPause',
       togglePlaylistPlayback
     );
+    const seekForwardSubscription = lockScreenPlayer.addListener(
+      'onRemoteSeekForward',
+      ({ interval }) => {
+        seekPlaylistTo(currentTimeRef.current + interval);
+      }
+    );
+    const seekBackwardSubscription = lockScreenPlayer.addListener(
+      'onRemoteSeekBackward',
+      ({ interval }) => {
+        seekPlaylistTo(currentTimeRef.current - interval);
+      }
+    );
+    const seekToSubscription = lockScreenPlayer.addListener('onRemoteSeekTo', ({ position }) => {
+      seekPlaylistTo(position);
+    });
     const nextSubscription = lockScreenPlayer.addListener('onRemoteNextTrack', () => {
       playlist.next();
     });
@@ -145,10 +185,13 @@ export default function AudioPlaylistScreen() {
       playSubscription.remove();
       pauseSubscription.remove();
       togglePlayPauseSubscription.remove();
+      seekForwardSubscription.remove();
+      seekBackwardSubscription.remove();
+      seekToSubscription.remove();
       nextSubscription.remove();
       previousSubscription.remove();
     };
-  }, [lockScreenPlayer, playlist]);
+  }, [lockScreenPlayer, playlist, seekPlaylistTo]);
 
   const handleAddTrack = () => {
     const sourceToAdd = ADDITIONAL_SOURCES[addTrackIndex % ADDITIONAL_SOURCES.length];
@@ -172,7 +215,9 @@ export default function AudioPlaylistScreen() {
     setLockScreenControlsEnabled(shouldEnable);
   };
 
-  const toggleLockScreenOption = (option: 'showNextTrack' | 'showPreviousTrack') => {
+  const toggleLockScreenOption = (
+    option: 'showSeekForward' | 'showSeekBackward' | 'showNextTrack' | 'showPreviousTrack'
+  ) => {
     setLockScreenOptions((currentOptions) => ({
       ...currentOptions,
       [option]: !currentOptions[option],
@@ -189,19 +234,22 @@ export default function AudioPlaylistScreen() {
       </View>
 
       <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${status.duration > 0 ? (status.currentTime / status.duration) * 100 : 0}%`,
-              },
-            ]}
-          />
-        </View>
+        <Slider
+          disabled={sources.length === 0 || status.duration <= 0}
+          minimumValue={0}
+          maximumValue={Math.max(status.duration, 0)}
+          minimumTrackTintColor={Colors.tintColor}
+          maximumTrackTintColor={Colors.border}
+          value={displayedCurrentTime}
+          onValueChange={setScrubPosition}
+          onSlidingComplete={(position) => {
+            setScrubPosition(null);
+            seekPlaylistTo(position);
+          }}
+        />
         <View style={styles.timeContainer}>
           <BodyText color="secondary" style={styles.timeText}>
-            {formatTime(status.currentTime)}
+            {formatTime(displayedCurrentTime)}
           </BodyText>
           <BodyText color="secondary" style={styles.timeText}>
             {formatTime(status.duration)}
@@ -230,6 +278,19 @@ export default function AudioPlaylistScreen() {
         />
       </View>
 
+      <View style={styles.controls}>
+        <Button
+          title="-10s"
+          onPress={() => seekPlaylistTo(status.currentTime - 10)}
+          disabled={sources.length === 0}
+        />
+        <Button
+          title="+10s"
+          onPress={() => seekPlaylistTo(status.currentTime + 10)}
+          disabled={sources.length === 0}
+        />
+      </View>
+
       <HeadingText>Lock Screen Controls</HeadingText>
       <View style={styles.lockScreenControls}>
         <Button
@@ -239,10 +300,24 @@ export default function AudioPlaylistScreen() {
         />
         <View style={styles.optionRow}>
           <Checkbox
+            value={lockScreenOptions.showSeekBackward}
+            onValueChange={() => toggleLockScreenOption('showSeekBackward')}
+          />
+          <Text style={styles.optionText}>Seek backward</Text>
+        </View>
+        <View style={styles.optionRow}>
+          <Checkbox
             value={lockScreenOptions.showPreviousTrack}
             onValueChange={() => toggleLockScreenOption('showPreviousTrack')}
           />
           <Text style={styles.optionText}>Previous track</Text>
+        </View>
+        <View style={styles.optionRow}>
+          <Checkbox
+            value={lockScreenOptions.showSeekForward}
+            onValueChange={() => toggleLockScreenOption('showSeekForward')}
+          />
+          <Text style={styles.optionText}>Seek forward</Text>
         </View>
         <View style={styles.optionRow}>
           <Checkbox
