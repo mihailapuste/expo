@@ -4,6 +4,9 @@ import Combine
 private enum AudioConstants {
   static let playbackStatus = "playbackStatusUpdate"
   static let audioSample = "audioSampleUpdate"
+  static let remotePlay = "onRemotePlay"
+  static let remotePause = "onRemotePause"
+  static let remoteTogglePlayPause = "onRemoteTogglePlayPause"
   static let remoteNextTrack = "onRemoteNextTrack"
   static let remotePreviousTrack = "onRemotePreviousTrack"
 }
@@ -172,6 +175,18 @@ public class AudioPlayer: SharedRef<AVPlayer>, Playable {
 
   func emitRemotePreviousTrack() {
     emit(event: AudioConstants.remotePreviousTrack)
+  }
+
+  func emitRemotePlay() {
+    emit(event: AudioConstants.remotePlay)
+  }
+
+  func emitRemotePause() {
+    emit(event: AudioConstants.remotePause)
+  }
+
+  func emitRemoteTogglePlayPause() {
+    emit(event: AudioConstants.remoteTogglePlayPause)
   }
 
   func updateStatus(with dict: [String: Any]) {

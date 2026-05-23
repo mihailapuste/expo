@@ -242,6 +242,7 @@ class MediaController {
         return .commandFailed
       }
 
+      player.emitRemotePlay()
       player.play(at: Float(player.currentRate > 0 ? player.currentRate : 1.0))
       return .success
     }
@@ -251,7 +252,8 @@ class MediaController {
         return .commandFailed
       }
 
-      player.ref.pause()
+      player.emitRemotePause()
+      player.pause()
       return .success
     }
 
@@ -260,8 +262,9 @@ class MediaController {
         return .commandFailed
       }
 
+      player.emitRemoteTogglePlayPause()
       if player.isPlaying {
-        player.ref.pause()
+        player.pause()
       } else {
         player.play(at: Float(player.currentRate > 0 ? player.currentRate : 1.0))
       }

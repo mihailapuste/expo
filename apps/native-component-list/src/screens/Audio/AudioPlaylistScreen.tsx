@@ -1,14 +1,14 @@
 import {
-  AudioLockScreenOptions,
-  AudioMetadata,
   AudioModule,
   AudioSource,
+  type AudioLockScreenOptions,
+  type AudioMetadata,
   useAudioPlayer,
   useAudioPlaylist,
   useAudioPlaylistStatus,
 } from 'expo-audio';
 import Checkbox from 'expo-checkbox';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 
 import { BodyText } from '../../components/BodyText';
@@ -78,6 +78,7 @@ export default function AudioPlaylistScreen() {
   const lockScreenPlayer = useAudioPlayer(null);
 
   const status = useAudioPlaylistStatus(playlist);
+  const isPlayingRef = useRef(status.playing);
 
   const sources = playlist.sources;
   const currentSource = sources[status.currentIndex];
@@ -105,18 +106,34 @@ export default function AudioPlaylistScreen() {
   }, []);
 
   React.useEffect(() => {
+    isPlayingRef.current = status.playing;
+  }, [status.playing]);
+
+  React.useEffect(() => {
     if (!lockScreenControlsEnabled) {
       return;
     }
 
     lockScreenPlayer.setActiveForLockScreen(true, lockScreenMetadata, lockScreenOptions);
-
-    return () => {
-      lockScreenPlayer.clearLockScreenControls();
-    };
   }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenMetadata, lockScreenOptions]);
 
   React.useEffect(() => {
+    const togglePlaylistPlayback = () => {
+      if (isPlayingRef.current) {
+        playlist.pause();
+      } else {
+        playlist.play();
+      }
+    };
+
+    const playSubscription = lockScreenPlayer.addListener('onRemotePlay', togglePlaylistPlayback);
+    const pauseSubscription = lockScreenPlayer.addListener('onRemotePause', () => {
+      playlist.pause();
+    });
+    const togglePlayPauseSubscription = lockScreenPlayer.addListener(
+      'onRemoteTogglePlayPause',
+      togglePlaylistPlayback
+    );
     const nextSubscription = lockScreenPlayer.addListener('onRemoteNextTrack', () => {
       playlist.next();
     });
@@ -125,6 +142,9 @@ export default function AudioPlaylistScreen() {
     });
 
     return () => {
+      playSubscription.remove();
+      pauseSubscription.remove();
+      togglePlayPauseSubscription.remove();
       nextSubscription.remove();
       previousSubscription.remove();
     };

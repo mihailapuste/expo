@@ -223,6 +223,21 @@ export type AudioEvents = {
     /** Fired when audio sampling is enabled and new sample data is available. */
     audioSampleUpdate(data: AudioSample): void;
     /**
+     * Fired when the play command is triggered from the lock screen.
+     * @platform ios
+     */
+    onRemotePlay(): void;
+    /**
+     * Fired when the pause command is triggered from the lock screen.
+     * @platform ios
+     */
+    onRemotePause(): void;
+    /**
+     * Fired when the toggle play/pause command is triggered from the lock screen.
+     * @platform ios
+     */
+    onRemoteTogglePlayPause(): void;
+    /**
      * Fired when the next track command is triggered from the lock screen.
      * @platform ios
      */
