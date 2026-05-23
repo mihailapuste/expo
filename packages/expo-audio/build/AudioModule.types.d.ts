@@ -222,6 +222,16 @@ export type AudioEvents = {
     playbackStatusUpdate(status: AudioStatus): void;
     /** Fired when audio sampling is enabled and new sample data is available. */
     audioSampleUpdate(data: AudioSample): void;
+    /**
+     * Fired when the next track command is triggered from the lock screen.
+     * @platform ios
+     */
+    onRemoteNextTrack(): void;
+    /**
+     * Fired when the previous track command is triggered from the lock screen.
+     * @platform ios
+     */
+    onRemotePreviousTrack(): void;
 };
 export declare class AudioRecorder extends SharedObject<RecordingEvents> {
     /**

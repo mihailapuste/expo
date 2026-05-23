@@ -9,6 +9,9 @@ class MediaController {
   private var remoteCommandCenter = MPRemoteCommandCenter.shared()
   private var nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
 
+  private var nextTrackTarget: Any?
+  private var previousTrackTarget: Any?
+
   private var currentArtworkUrl: URL?
   private var cachedArtwork: MPMediaItemArtwork?
   private var artworkLoadToken: UUID?
@@ -232,6 +235,8 @@ class MediaController {
   }
 
   private func enableRemoteCommands(options: LockScreenOptions?) {
+    removeTrackCommandTargets()
+
     remoteCommandCenter.playCommand.addTarget { [weak self] _ in
       guard let player = self?.activePlayer else {
         return .commandFailed
@@ -303,12 +308,32 @@ class MediaController {
       return .success
     }
 
+    nextTrackTarget = remoteCommandCenter.nextTrackCommand.addTarget { [weak self] _ in
+      guard let player = self?.activePlayer else {
+        return .commandFailed
+      }
+
+      player.emitRemoteNextTrack()
+      return .success
+    }
+
+    previousTrackTarget = remoteCommandCenter.previousTrackCommand.addTarget { [weak self] _ in
+      guard let player = self?.activePlayer else {
+        return .commandFailed
+      }
+
+      player.emitRemotePreviousTrack()
+      return .success
+    }
+
     remoteCommandCenter.playCommand.isEnabled = true
     remoteCommandCenter.pauseCommand.isEnabled = true
     remoteCommandCenter.togglePlayPauseCommand.isEnabled = true
     remoteCommandCenter.changePlaybackPositionCommand.isEnabled = !isLiveStream
     remoteCommandCenter.skipForwardCommand.isEnabled = options?.showSeekForward ?? false
     remoteCommandCenter.skipBackwardCommand.isEnabled = options?.showSeekBackward ?? false
+    remoteCommandCenter.nextTrackCommand.isEnabled = options?.showNextTrack ?? false
+    remoteCommandCenter.previousTrackCommand.isEnabled = options?.showPreviousTrack ?? false
   }
 
   private func disableRemoteCommands() {
@@ -318,6 +343,8 @@ class MediaController {
     remoteCommandCenter.changePlaybackPositionCommand.isEnabled = false
     remoteCommandCenter.skipForwardCommand.isEnabled = false
     remoteCommandCenter.skipBackwardCommand.isEnabled = false
+    remoteCommandCenter.nextTrackCommand.isEnabled = false
+    remoteCommandCenter.previousTrackCommand.isEnabled = false
 
     // Remove event targets
     remoteCommandCenter.playCommand.removeTarget(self)
@@ -326,5 +353,17 @@ class MediaController {
     remoteCommandCenter.changePlaybackPositionCommand.removeTarget(self)
     remoteCommandCenter.skipForwardCommand.removeTarget(self)
     remoteCommandCenter.skipBackwardCommand.removeTarget(self)
+    removeTrackCommandTargets()
+  }
+
+  private func removeTrackCommandTargets() {
+    if let nextTrackTarget {
+      remoteCommandCenter.nextTrackCommand.removeTarget(nextTrackTarget)
+    }
+    if let previousTrackTarget {
+      remoteCommandCenter.previousTrackCommand.removeTarget(previousTrackTarget)
+    }
+    nextTrackTarget = nil
+    previousTrackTarget = nil
   }
 }
