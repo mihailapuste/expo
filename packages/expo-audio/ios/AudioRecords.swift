@@ -68,6 +68,14 @@ struct LockScreenOptions: Record {
   @Field var isLiveStream: Bool? = false
 }
 
+struct LockScreenPlaybackInfo: Record {
+  @Field var currentTime: Double = 0
+  @Field var duration: Double = 0
+  @Field var isPlaying: Bool = false
+  @Field var playbackRate: Double = 1
+  @Field var isLiveStream: Bool = false
+}
+
 enum BitRateStrategy: String, Enumerable {
   case constant
   case longTermAverage

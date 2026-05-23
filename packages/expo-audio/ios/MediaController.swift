@@ -30,6 +30,12 @@ class MediaController {
     }
   }
 
+  func updateNowPlayingPlaybackInfo(for player: AudioPlayer, playbackInfo: LockScreenPlaybackInfo) {
+    performOnMain {
+      self.updateNowPlayingPlaybackInfoOnMain(for: player, playbackInfo: playbackInfo)
+    }
+  }
+
   private func setActivePlayerOnMain(_ player: AudioPlayer?, options: LockScreenOptions? = nil) {
     if let previous = activePlayer, previous.id != player?.id {
       previous.isActiveForLockScreen = false
@@ -78,15 +84,59 @@ class MediaController {
   }
 
   private func applyPlaybackInfo(_ info: inout [String: Any], for player: AudioPlayer) {
+    applyPlaybackInfo(
+      &info,
+      currentTime: player.currentTime,
+      duration: player.duration,
+      isPlaying: player.isPlaying,
+      playbackRate: Double(player.ref.rate),
+      isLiveStream: isLiveStream
+    )
+  }
+
+  private func updateNowPlayingPlaybackInfoOnMain(for player: AudioPlayer, playbackInfo: LockScreenPlaybackInfo) {
+    guard player.id == activePlayer?.id else {
+      return
+    }
+
+    isLiveStream = playbackInfo.isLiveStream
+
+    var nowPlayingInfo = nowPlayingInfoCenter.nowPlayingInfo ?? [String: Any]()
+    applyPlaybackInfo(
+      &nowPlayingInfo,
+      currentTime: playbackInfo.currentTime,
+      duration: playbackInfo.duration,
+      isPlaying: playbackInfo.isPlaying,
+      playbackRate: playbackInfo.playbackRate,
+      isLiveStream: playbackInfo.isLiveStream
+    )
+    nowPlayingInfoCenter.nowPlayingInfo = nowPlayingInfo
+  }
+
+  private func applyPlaybackInfo(
+    _ info: inout [String: Any],
+    currentTime: Double,
+    duration: Double,
+    isPlaying: Bool,
+    playbackRate: Double,
+    isLiveStream: Bool
+  ) {
     if isLiveStream {
       info[MPNowPlayingInfoPropertyIsLiveStream] = true
       info.removeValue(forKey: MPMediaItemPropertyPlaybackDuration)
       info.removeValue(forKey: MPNowPlayingInfoPropertyElapsedPlaybackTime)
     } else {
-      info[MPMediaItemPropertyPlaybackDuration] = player.duration
-      info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = player.currentTime
+      info.removeValue(forKey: MPNowPlayingInfoPropertyIsLiveStream)
+
+      let safeDuration = duration.isFinite ? max(duration, 0) : 0
+      let safeElapsedTime = currentTime.isFinite ? max(currentTime, 0) : 0
+
+      info[MPMediaItemPropertyPlaybackDuration] = safeDuration
+      info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = min(safeElapsedTime, safeDuration)
     }
-    info[MPNowPlayingInfoPropertyPlaybackRate] = player.isPlaying ? player.ref.rate : 0.0
+    let safePlaybackRate = playbackRate.isFinite && playbackRate > 0 ? playbackRate : 1
+    info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? safePlaybackRate : 0
+    info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = safePlaybackRate
     info[MPNowPlayingInfoPropertyMediaType] = MPNowPlayingInfoMediaType.audio.rawValue
   }
 

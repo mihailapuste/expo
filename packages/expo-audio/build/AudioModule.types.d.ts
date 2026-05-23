@@ -4,6 +4,18 @@ import type { AudioMetadata, AudioMode, AudioPlaylistLoopMode, AudioPlaylistStat
 import type { AudioLockScreenOptions } from './AudioConstants';
 import type { AudioStream } from './AudioStream.types';
 /**
+ * Playback values to display in native lock screen controls.
+ * @hidden
+ * @platform ios
+ */
+export type AudioLockScreenPlaybackInfo = {
+    currentTime: number;
+    duration: number;
+    isPlaying: boolean;
+    playbackRate: number;
+    isLiveStream?: boolean;
+};
+/**
  * @hidden
  */
 export declare class NativeAudioModule extends NativeModule {
@@ -178,6 +190,12 @@ export declare class AudioPlayer extends SharedObject<AudioEvents> {
      * @param metadata The metadata to display (title, artist, album, artwork).
      */
     updateLockScreenMetadata(metadata: AudioMetadata): void;
+    /**
+     * Updates playback position displayed on the lock screen for this player.
+     * @hidden
+     * @platform ios
+     */
+    updateLockScreenPlaybackInfo(playbackInfo: AudioLockScreenPlaybackInfo): void;
     /**
      * Removes this player from lock screen controls if it's currently active.
      * This will clear the lock screen's now playing info.

@@ -2,6 +2,7 @@ import {
   AudioModule,
   AudioSource,
   type AudioLockScreenOptions,
+  type AudioLockScreenPlaybackInfo,
   type AudioMetadata,
   useAudioPlayer,
   useAudioPlaylist,
@@ -10,7 +11,7 @@ import {
 import Checkbox from 'expo-checkbox';
 import Slider from '@react-native-community/slider';
 import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 
 import { BodyText } from '../../components/BodyText';
 import HeadingText from '../../components/HeadingText';
@@ -43,6 +44,10 @@ function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function sanitizePlaybackNumber(value: number, fallback = 0): number {
+  return Number.isFinite(value) ? Math.max(value, 0) : fallback;
 }
 
 function Button({
@@ -141,6 +146,30 @@ export default function AudioPlaylistScreen() {
 
     lockScreenPlayer.setActiveForLockScreen(true, lockScreenMetadata, lockScreenOptions);
   }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenMetadata, lockScreenOptions]);
+
+  React.useEffect(() => {
+    if (!lockScreenControlsEnabled || Platform.OS !== 'ios') {
+      return;
+    }
+
+    const duration = sanitizePlaybackNumber(status.duration);
+    const playbackInfo: AudioLockScreenPlaybackInfo = {
+      currentTime: Math.min(sanitizePlaybackNumber(status.currentTime), duration),
+      duration,
+      isPlaying: status.playing,
+      playbackRate: sanitizePlaybackNumber(status.playbackRate, 1) || 1,
+      isLiveStream: false,
+    };
+
+    lockScreenPlayer.updateLockScreenPlaybackInfo(playbackInfo);
+  }, [
+    lockScreenPlayer,
+    lockScreenControlsEnabled,
+    status.currentTime,
+    status.duration,
+    status.playbackRate,
+    status.playing,
+  ]);
 
   React.useEffect(() => {
     const togglePlaylistPlayback = () => {
