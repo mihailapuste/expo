@@ -17,6 +17,11 @@ import { BodyText } from '../../components/BodyText';
 import HeadingText from '../../components/HeadingText';
 import Colors from '../../constants/Colors';
 
+const PLAYLIST_ARTWORK_URLS = [
+  'https://images.unsplash.com/photo-1549138144-42ff3cdd2bf8?q=80&w=3504&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  'https://images.unsplash.com/photo-1549228167-511375f69159?q=80&w=3676&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+];
+
 const INITIAL_SOURCES: AudioSource[] = [
   require('../../../assets/sounds/polonez.mp3'),
   {
@@ -48,6 +53,15 @@ function formatTime(seconds: number): string {
 
 function sanitizePlaybackNumber(value: number, fallback = 0): number {
   return Number.isFinite(value) ? Math.max(value, 0) : fallback;
+}
+
+function getPlaylistTrackMetadata(trackName: string, index: number): AudioMetadata {
+  return {
+    title: trackName,
+    artist: 'Expo Audio Playlist',
+    albumTitle: 'Audio Playlist',
+    artworkUrl: PLAYLIST_ARTWORK_URLS[index % PLAYLIST_ARTWORK_URLS.length],
+  };
 }
 
 function Button({
@@ -99,12 +113,10 @@ export default function AudioPlaylistScreen() {
   const displayedCurrentTime = scrubPosition ?? status.currentTime;
 
   const lockScreenMetadata = useMemo<AudioMetadata>(
-    () => ({
-      title: currentTrackName,
-      artist: 'Expo Audio Playlist',
-    }),
-    [currentTrackName]
+    () => getPlaylistTrackMetadata(currentTrackName, status.currentIndex),
+    [currentTrackName, status.currentIndex]
   );
+  const lockScreenMetadataRef = useRef(lockScreenMetadata);
 
   React.useEffect(() => {
     AudioModule.setAudioModeAsync({
@@ -126,6 +138,10 @@ export default function AudioPlaylistScreen() {
     durationRef.current = status.duration;
   }, [status.currentTime, status.duration]);
 
+  React.useEffect(() => {
+    lockScreenMetadataRef.current = lockScreenMetadata;
+  }, [lockScreenMetadata]);
+
   const seekPlaylistTo = React.useCallback(
     (position: number) => {
       const duration = durationRef.current;
@@ -144,8 +160,20 @@ export default function AudioPlaylistScreen() {
       return;
     }
 
-    lockScreenPlayer.setActiveForLockScreen(true, lockScreenMetadata, lockScreenOptions);
-  }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenMetadata, lockScreenOptions]);
+    lockScreenPlayer.setActiveForLockScreen(
+      true,
+      lockScreenMetadataRef.current,
+      lockScreenOptions
+    );
+  }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenOptions]);
+
+  React.useEffect(() => {
+    if (!lockScreenControlsEnabled) {
+      return;
+    }
+
+    lockScreenPlayer.updateLockScreenMetadata(lockScreenMetadata);
+  }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenMetadata]);
 
   React.useEffect(() => {
     if (!lockScreenControlsEnabled || Platform.OS !== 'ios') {
