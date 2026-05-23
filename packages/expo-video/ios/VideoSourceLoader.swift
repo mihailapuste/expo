@@ -26,8 +26,8 @@ internal class VideoSourceLoader {
     isLoading = true
     if let currentTask {
       currentTask.cancel()
-      listeners.forEach { listener in
-        listener.value?.onLoadingCancelled(loader: self, videoSource: currentSource)
+      notifyListeners { listener in
+        listener.onLoadingCancelled(loader: self, videoSource: self.currentSource)
       }
     }
 
@@ -40,8 +40,8 @@ internal class VideoSourceLoader {
     let loadingResult = try await newTask.value
 
     if !loadingResult.isCancelled {
-      listeners.forEach { listener in
-        listener.value?.onLoadingFinished(loader: self, videoSource: videoSource, result: loadingResult.value)
+      notifyListeners { listener in
+        listener.onLoadingFinished(loader: self, videoSource: videoSource, result: loadingResult.value)
       }
     }
 
@@ -62,8 +62,8 @@ internal class VideoSourceLoader {
   }
 
   private func loadImpl(videoSource: VideoSource) async throws -> LoadingResult {
-    listeners.forEach { listener in
-      listener.value?.onLoadingStarted(loader: self, videoSource: videoSource)
+    notifyListeners { listener in
+      listener.onLoadingStarted(loader: self, videoSource: videoSource)
     }
 
     guard
@@ -81,6 +81,25 @@ internal class VideoSourceLoader {
     }
 
     return LoadingResult(value: playerItem, isCancelled: false)
+  }
+
+  private func notifyListeners(_ operation: @escaping (VideoSourceLoaderListener) -> Void) {
+    let notify = { [weak self] in
+      guard let self else {
+        return
+      }
+      self.listeners.forEach { listener in
+        if let value = listener.value {
+          operation(value)
+        }
+      }
+    }
+
+    if Thread.isMainThread {
+      notify()
+    } else {
+      DispatchQueue.main.sync(execute: notify)
+    }
   }
 }
 

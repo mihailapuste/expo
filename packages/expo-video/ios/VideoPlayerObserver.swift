@@ -48,7 +48,7 @@ protocol VideoPlayerObserverDelegate: AnyObject {
   func onIsPlayingChanged(player: AVPlayer, oldIsPlaying: Bool?, newIsPlaying: Bool)
   func onRateChanged(player: AVPlayer, oldRate: Float?, newRate: Float)
   func onVolumeChanged(player: AVPlayer, oldVolume: Float?, newVolume: Float)
-  func onPlayedToEnd(player: AVPlayer)
+  func onPlayedToEnd(player: AVPlayer, playerItem: AVPlayerItem)
   func onItemChanged(player: AVPlayer, oldVideoPlayerItem: VideoPlayerItem?, newVideoPlayerItem: VideoPlayerItem?)
   func onIsMutedChanged(player: AVPlayer, oldIsMuted: Bool?, newIsMuted: Bool)
   func onPlayerItemStatusChanged(player: AVPlayer, oldStatus: AVPlayerItem.Status?, newStatus: AVPlayerItem.Status)
@@ -67,7 +67,7 @@ extension VideoPlayerObserverDelegate {
   func onIsPlayingChanged(player: AVPlayer, oldIsPlaying: Bool?, newIsPlaying: Bool) {}
   func onRateChanged(player: AVPlayer, oldRate: Float?, newRate: Float) {}
   func onVolumeChanged(player: AVPlayer, oldVolume: Float?, newVolume: Float) {}
-  func onPlayedToEnd(player: AVPlayer) {}
+  func onPlayedToEnd(player: AVPlayer, playerItem: AVPlayerItem) {}
   func onItemChanged(player: AVPlayer, oldVideoPlayerItem: VideoPlayerItem?, newVideoPlayerItem: VideoPlayerItem?) {}
   func onIsMutedChanged(player: AVPlayer, oldIsMuted: Bool?, newIsMuted: Bool) {}
   func onPlayerItemStatusChanged(player: AVPlayer, oldStatus: AVPlayerItem.Status?, newStatus: AVPlayerItem.Status) {}
@@ -311,7 +311,7 @@ class VideoPlayerObserver: VideoSourceLoaderListener {
       queue: nil
     ) { [weak self] _ in
       self?.delegates.forEach { delegate in
-        delegate.value?.onPlayedToEnd(player: player)
+        delegate.value?.onPlayedToEnd(player: player, playerItem: playerItem)
       }
     }
 
@@ -405,11 +405,12 @@ class VideoPlayerObserver: VideoSourceLoaderListener {
     currentVideoTrack = nil
 
     if let videoPlayerItem = newPlayerItem as? VideoPlayerItem {
+      let oldItem = currentItem
       initializeCurrentPlayerItemObservers(player: player, playerItem: videoPlayerItem)
       currentItem = videoPlayerItem
 
       delegates.forEach { delegate in
-        delegate.value?.onItemChanged(player: player, oldVideoPlayerItem: currentItem, newVideoPlayerItem: videoPlayerItem)
+        delegate.value?.onItemChanged(player: player, oldVideoPlayerItem: oldItem, newVideoPlayerItem: videoPlayerItem)
       }
       loadedCurrentItem = false
       return
