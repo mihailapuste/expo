@@ -179,6 +179,23 @@ export type VideoPlaylistStatus = {
 };
 
 /**
+ * Payload emitted when a [`VideoPlaylist`](#videoplaylist) changes the current source.
+ *
+ * @platform ios
+ */
+export type VideoPlaylistTrackChangedEventPayload = {
+  /**
+   * Index of the source that was current before the change.
+   */
+  previousIndex: number;
+
+  /**
+   * Index of the source that is current after the change.
+   */
+  currentIndex: number;
+};
+
+/**
  * Events emitted by a [`VideoPlaylist`](#videoplaylist).
  *
  * @platform ios
@@ -188,6 +205,11 @@ export type VideoPlaylistEvents = {
    * Emitted when playlist or playback status changes.
    */
   playlistStatusUpdate(status: VideoPlaylistStatus): void;
+
+  /**
+   * Emitted when the playlist changes the current source.
+   */
+  trackChanged(payload: VideoPlaylistTrackChangedEventPayload): void;
 };
 
 /**

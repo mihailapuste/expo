@@ -5,6 +5,7 @@ import ExpoModulesCore
 
 private enum VideoPlaylistConstants {
   static let playlistStatusUpdate = "playlistStatusUpdate"
+  static let trackChanged = "trackChanged"
 }
 
 internal enum VideoPlaylistLoopMode: String, Enumerable {
@@ -35,6 +36,7 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
   let id = UUID().uuidString
   let player: VideoPlayer
 
+  private let queuePlayer: AVQueuePlayer
   private let interval: Double
   private let preloadLoader = VideoSourceLoader()
   private var sources: [VideoPlaylistSource]
@@ -49,6 +51,8 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
   private var preloadedItem: VideoPlayerItem?
   private var preloadedIndex: Int?
   private var preloadedIdentity: String?
+  private var preloadedItemIsQueued = false
+  private var currentItem: AVPlayerItem?
   private var timeToken: Any?
   private var error: PlaybackError?
   private var isDestroyed = false
@@ -67,7 +71,9 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
     self.loopMode = loopMode
     self.shouldPreloadNext = preloadNext
     self.autoAdvance = autoAdvance
-    self.player = try VideoPlayer(AVPlayer(), initialSource: nil)
+    let queuePlayer = AVQueuePlayer()
+    self.queuePlayer = queuePlayer
+    self.player = try VideoPlayer(queuePlayer, initialSource: nil)
 
     super.init()
 
@@ -204,17 +210,14 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
   func clear() {
     transitionGeneration += 1
     transitionTask?.cancel()
-    preloadTask?.cancel()
-    preloadLoader.cancelCurrentTask()
-    preloadedItem = nil
-    preloadedIndex = nil
-    preloadedIdentity = nil
+    clearPreloadedItem(removeQueuedItem: false)
     shouldPlayWhenReady = false
     sources.removeAll()
     currentIndex = 0
+    currentItem = nil
     error = nil
     player.ref.pause()
-    player.replaceCurrentItem(withPreloadedItem: nil)
+    removeAllQueuedItems()
     DispatchQueue.main.async { [weak self] in
       self?.emitStatus()
     }
@@ -228,11 +231,7 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
 
     sources = newSources
     currentIndex = newSources.isEmpty ? 0 : newIndex
-    preloadedItem = nil
-    preloadedIndex = nil
-    preloadedIdentity = nil
-    preloadTask?.cancel()
-    preloadLoader.cancelCurrentTask()
+    clearPreloadedItem(removeQueuedItem: true)
 
     guard !newSources.isEmpty else {
       clear()
@@ -266,6 +265,23 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
   }
 
   func onItemChanged(player: AVPlayer, oldVideoPlayerItem: VideoPlayerItem?, newVideoPlayerItem: VideoPlayerItem?) {
+    let previousIndex = currentIndex
+    currentItem = newVideoPlayerItem
+
+    if let newVideoPlayerItem,
+      let preloadedItem,
+      newVideoPlayerItem === preloadedItem,
+      let preloadedIndex {
+      currentIndex = preloadedIndex
+      self.preloadedItem = nil
+      self.preloadedIndex = nil
+      self.preloadedIdentity = nil
+      preloadedItemIsQueued = false
+      emitTrackChanged(previousIndex: previousIndex, currentIndex: currentIndex)
+      preloadNextItem()
+      return
+    }
+
     emitStatus()
   }
 
@@ -273,8 +289,13 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
     emitStatus()
   }
 
-  func onPlayedToEnd(player: AVPlayer) {
-    handlePlayToEnd()
+  func onPlayedToEnd(player: AVPlayer, playerItem: AVPlayerItem) {
+    runOnMainAsync { [weak self, weak playerItem] in
+      guard let self, let playerItem, self.isCurrentItem(playerItem) else {
+        return
+      }
+      self.handlePlayToEnd()
+    }
   }
 
   // MARK: - Transitions
@@ -286,6 +307,7 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
 
     transitionGeneration += 1
     let generation = transitionGeneration
+    let previousIndex = currentIndex
     currentIndex = index
     shouldPlayWhenReady = shouldPlay
     emitStatus()
@@ -295,11 +317,11 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
       guard let self else {
         return
       }
-      await self.transition(to: index, shouldPlay: shouldPlay, generation: generation)
+      await self.transition(to: index, previousIndex: previousIndex, shouldPlay: shouldPlay, generation: generation)
     }
   }
 
-  private func transition(to index: Int, shouldPlay: Bool, generation: Int) async {
+  private func transition(to index: Int, previousIndex: Int, shouldPlay: Bool, generation: Int) async {
     guard validIndex(index), !Task.isCancelled else {
       return
     }
@@ -307,43 +329,51 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
     let playlistSource = sources[index]
     let sourceIdentity = sourceIdentity(playlistSource)
     let playerItem: VideoPlayerItem?
+    let shouldAdvanceToQueuedItem: Bool
 
     if let preloadedItem,
       preloadedIndex == index,
       preloadedIdentity == sourceIdentity {
       playerItem = preloadedItem
+      shouldAdvanceToQueuedItem = preloadedItemIsQueued
       self.preloadedItem = nil
       self.preloadedIndex = nil
       self.preloadedIdentity = nil
-    } else if let source = playlistSource.source {
-      do {
-        playerItem = try await player.loadPlayerItem(with: source, using: player.videoSourceLoader)
-      } catch {
-        guard generation == transitionGeneration else {
+      self.preloadedItemIsQueued = false
+    } else {
+      shouldAdvanceToQueuedItem = false
+      clearPreloadedItem(removeQueuedItem: true)
+      if let source = playlistSource.source {
+        do {
+          playerItem = try await player.loadPlayerItem(with: source, using: player.videoSourceLoader)
+        } catch {
+          guard generation == transitionGeneration else {
+            return
+          }
+          self.error = PlaybackError(message: error.localizedDescription)
+          emitStatus()
+          preloadNextItem()
           return
         }
-        self.error = PlaybackError(message: error.localizedDescription)
-        emitStatus()
-        preloadNextItem()
-        return
+      } else {
+        playerItem = nil
       }
-    } else {
-      playerItem = nil
     }
 
     guard generation == transitionGeneration, !Task.isCancelled, !isDestroyed else {
       return
     }
 
-    player.replaceCurrentItem(withPreloadedItem: playerItem)
-
-    if shouldPlay {
-      DispatchQueue.main.async { [weak self] in
-        self?.player.ref.play()
-      }
+    guard applyCurrentQueueItem(
+      playerItem,
+      shouldPlay: shouldPlay,
+      generation: generation,
+      advanceToQueuedItem: shouldAdvanceToQueuedItem
+    ) else {
+      return
     }
 
-    emitStatus()
+    emitTrackChanged(previousIndex: previousIndex, currentIndex: currentIndex)
     preloadNextItem()
   }
 
@@ -367,32 +397,40 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
       player.ref.play()
       emitStatus(with: ["didJustFinish": true])
     case .all:
-      if currentIndex >= sources.count - 1 {
-        transition(to: 0, shouldPlay: true)
-      } else {
-        transition(to: currentIndex + 1, shouldPlay: true)
-      }
+      handleSequentialPlaybackEnd()
     case .none:
       if currentIndex >= sources.count - 1 {
         shouldPlayWhenReady = false
         player.ref.pause()
         emitStatus(with: ["didJustFinish": true, "playing": false])
       } else {
-        transition(to: currentIndex + 1, shouldPlay: true)
+        handleSequentialPlaybackEnd()
       }
+    }
+  }
+
+  private func handleSequentialPlaybackEnd() {
+    shouldPlayWhenReady = true
+    emitStatus(with: ["didJustFinish": true])
+
+    guard preloadedItemIsQueued else {
+      guard let nextIndex = nextIndex() else {
+        shouldPlayWhenReady = false
+        player.ref.pause()
+        emitStatus(with: ["playing": false])
+        return
+      }
+      transition(to: nextIndex, shouldPlay: true)
+      return
     }
   }
 
   // MARK: - Preloading
 
   private func preloadNextItem() {
-    preloadTask?.cancel()
-    preloadLoader.cancelCurrentTask()
-    preloadedItem = nil
-    preloadedIndex = nil
-    preloadedIdentity = nil
+    clearPreloadedItem(removeQueuedItem: true)
 
-    guard shouldPreloadNext,
+    guard shouldPrepareNextItem,
       !isDestroyed,
       sources.count > 1,
       loopMode != .single,
@@ -419,12 +457,146 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
           return
         }
 
-        self.preloadedItem = item
-        self.preloadedIndex = index
-        self.preloadedIdentity = identity
+        self.applyPreloadedItem(item, index: index, identity: identity, generation: generation)
       } catch {
         // Preloading is opportunistic. The main transition path will surface load errors.
       }
+    }
+  }
+
+  private var shouldPrepareNextItem: Bool {
+    autoAdvance || shouldPreloadNext
+  }
+
+  // MARK: - Queue
+
+  private func applyCurrentQueueItem(
+    _ playerItem: VideoPlayerItem?,
+    shouldPlay: Bool,
+    generation: Int,
+    advanceToQueuedItem: Bool = false
+  ) -> Bool {
+    var didApply = false
+
+    runOnMainSync {
+      guard generation == transitionGeneration, !isDestroyed else {
+        return
+      }
+
+      queuePlayer.pause()
+      if advanceToQueuedItem,
+        let playerItem,
+        advanceQueue(to: playerItem) {
+        currentItem = queuePlayer.currentItem
+        if shouldPlay {
+          queuePlayer.play()
+        }
+        didApply = true
+        return
+      }
+
+      queuePlayer.removeAllItems()
+
+      if let playerItem {
+        queuePlayer.insert(playerItem, after: nil)
+      }
+      currentItem = queuePlayer.currentItem
+
+      if shouldPlay {
+        queuePlayer.play()
+      }
+
+      didApply = true
+    }
+
+    return didApply
+  }
+
+  private func advanceQueue(to item: AVPlayerItem) -> Bool {
+    guard queuePlayer.items().contains(where: { $0 === item }) else {
+      return false
+    }
+
+    while let currentItem = queuePlayer.currentItem, currentItem !== item {
+      queuePlayer.advanceToNextItem()
+    }
+
+    guard let currentItem = queuePlayer.currentItem else {
+      return false
+    }
+    return currentItem === item
+  }
+
+  private func applyPreloadedItem(_ item: VideoPlayerItem, index: Int, identity: String, generation: Int) {
+    runOnMainSync {
+      guard !isDestroyed,
+        generation == transitionGeneration,
+        validIndex(index),
+        sourceIdentity(sources[index]) == identity else {
+        return
+      }
+
+      var didInsertInQueue = false
+      if autoAdvance,
+        let currentItem = queuePlayer.currentItem,
+        queuePlayer.canInsert(item, after: currentItem) {
+        queuePlayer.insert(item, after: currentItem)
+        didInsertInQueue = true
+      }
+
+      preloadedItem = item
+      preloadedIndex = index
+      preloadedIdentity = identity
+      preloadedItemIsQueued = didInsertInQueue
+    }
+  }
+
+  private func clearPreloadedItem(removeQueuedItem: Bool) {
+    preloadTask?.cancel()
+    preloadTask = nil
+    preloadLoader.cancelCurrentTask()
+
+    if removeQueuedItem,
+      preloadedItemIsQueued,
+      let preloadedItem {
+      runOnMainSync {
+        if let currentItem = self.queuePlayer.currentItem,
+          currentItem === preloadedItem {
+          return
+        }
+        guard self.queuePlayer.items().contains(where: { $0 === preloadedItem }) else {
+          return
+        }
+        self.queuePlayer.remove(preloadedItem)
+      }
+    }
+
+    preloadedItem = nil
+    preloadedIndex = nil
+    preloadedIdentity = nil
+    preloadedItemIsQueued = false
+  }
+
+  private func removeAllQueuedItems() {
+    runOnMainAsync { [weak self] in
+      self?.queuePlayer.removeAllItems()
+      self?.currentItem = nil
+    }
+  }
+
+  private func runOnMainSync(_ operation: () -> Void) {
+    if Thread.isMainThread {
+      operation()
+    } else {
+      DispatchQueue.main.sync(execute: operation)
+    }
+  }
+
+  private func runOnMainAsync(_ operation: @escaping () -> Void) {
+    if Thread.isMainThread {
+      operation()
+    } else {
+      DispatchQueue.main.async(execute: operation)
     }
   }
 
@@ -445,7 +617,7 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
       "loop": loopMode.rawValue,
       "canPlayNext": nextIndex() != nil,
       "canPlayPrevious": previousIndex() != nil,
-      "error": error?.toDictionary(appContext: appContext) ?? NSNull(),
+      "error": errorPayload() ?? NSNull(),
       "didJustFinish": false
     ]
     payload.merge(extra) { _, new in new }
@@ -453,7 +625,42 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
   }
 
   private func emitStatus(with extra: [String: Any] = [:]) {
-    emit(event: VideoPlaylistConstants.playlistStatusUpdate, payload: statusPayload(extra: extra))
+    let emit = { [weak self] in
+      guard let self else {
+        return
+      }
+      self.emit(event: VideoPlaylistConstants.playlistStatusUpdate, payload: self.statusPayload(extra: extra))
+    }
+
+    if Thread.isMainThread {
+      emit()
+    } else {
+      DispatchQueue.main.async(execute: emit)
+    }
+  }
+
+  private func emitTrackChanged(previousIndex: Int, currentIndex: Int) {
+    guard previousIndex != currentIndex else {
+      emitStatus()
+      return
+    }
+
+    let emit = { [weak self] in
+      guard let self else {
+        return
+      }
+      self.emit(event: VideoPlaylistConstants.trackChanged, payload: [
+        "previousIndex": previousIndex,
+        "currentIndex": currentIndex
+      ])
+      self.emit(event: VideoPlaylistConstants.playlistStatusUpdate, payload: self.statusPayload())
+    }
+
+    if Thread.isMainThread {
+      emit()
+    } else {
+      DispatchQueue.main.async(execute: emit)
+    }
   }
 
   private func currentSourcePayload() -> [String: Any]? {
@@ -462,7 +669,7 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
     }
 
     var payload: [String: Any] = [
-      "source": source.source?.toDictionary(appContext: appContext) ?? NSNull()
+      "source": videoSourcePayload(source.source)
     ]
 
     if let id = source.id {
@@ -470,10 +677,83 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
     }
 
     if let metadata = source.metadata {
-      payload["metadata"] = metadata.toDictionary(appContext: appContext)
+      payload["metadata"] = metadataPayload(metadata)
     }
 
     return payload
+  }
+
+  private func videoSourcePayload(_ source: VideoSource?) -> Any {
+    guard let source else {
+      return NSNull()
+    }
+
+    var payload: [String: Any] = [
+      "useCaching": source.useCaching,
+      "contentType": source.contentType.rawValue
+    ]
+
+    if let uri = source.uri {
+      payload["uri"] = uri.absoluteString
+    }
+    if let headers = source.headers {
+      payload["headers"] = headers
+    }
+    if let drm = source.drm {
+      payload["drm"] = drmPayload(drm)
+    }
+    if let metadata = source.metadata {
+      payload["metadata"] = metadataPayload(metadata)
+    }
+
+    return payload
+  }
+
+  private func drmPayload(_ drm: DRMOptions) -> [String: Any] {
+    var payload: [String: Any] = [
+      "type": drm.type.rawValue
+    ]
+
+    if let licenseServer = drm.licenseServer {
+      payload["licenseServer"] = licenseServer
+    }
+    if let headers = drm.headers?.compactMapValues({ $0 as? String }) {
+      payload["headers"] = headers
+    }
+    if let contentId = drm.contentId {
+      payload["contentId"] = contentId
+    }
+    if let certificateUrl = drm.certificateUrl {
+      payload["certificateUrl"] = certificateUrl.absoluteString
+    }
+    if let base64CertificateData = drm.base64CertificateData {
+      payload["base64CertificateData"] = base64CertificateData
+    }
+
+    return payload
+  }
+
+  private func metadataPayload(_ metadata: VideoMetadata) -> [String: Any] {
+    var payload: [String: Any] = [:]
+
+    if let title = metadata.title {
+      payload["title"] = title
+    }
+    if let artist = metadata.artist {
+      payload["artist"] = artist
+    }
+    if let artwork = metadata.artwork {
+      payload["artwork"] = artwork.absoluteString
+    }
+
+    return payload
+  }
+
+  private func errorPayload() -> [String: Any]? {
+    guard let message = error?.message else {
+      return nil
+    }
+    return ["message": message]
   }
 
   private var playerDuration: Double {
@@ -544,6 +824,13 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
     index >= 0 && index < sources.count
   }
 
+  private func isCurrentItem(_ item: AVPlayerItem) -> Bool {
+    if let currentItem {
+      return currentItem === item
+    }
+    return queuePlayer.currentItem === item
+  }
+
   private func indexPreservingCurrentSource(in newSources: [VideoPlaylistSource], currentSource: VideoPlaylistSource?) -> Int {
     guard let currentSource, !newSources.isEmpty else {
       return 0
@@ -605,6 +892,6 @@ internal final class VideoPlaylist: SharedObject, VideoPlayerObserverDelegate {
     }
 
     player.ref.pause()
-    player.replaceCurrentItem(withPreloadedItem: nil)
+    removeAllQueuedItems()
   }
 }

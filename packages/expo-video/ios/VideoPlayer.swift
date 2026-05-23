@@ -349,7 +349,7 @@ internal final class VideoPlayer: SharedRef<AVPlayer>, Hashable, VideoPlayerObse
     isMuted = newIsMuted
   }
 
-  func onPlayedToEnd(player: AVPlayer) {
+  func onPlayedToEnd(player: AVPlayer, playerItem: AVPlayerItem) {
     safeEmit(event: "playToEnd")
     if loop {
       seeker.seek(to: .zero)
@@ -426,8 +426,17 @@ internal final class VideoPlayer: SharedRef<AVPlayer>, Hashable, VideoPlayerObse
   }
 
   func safeEmit(event: String, payload: Record? = nil) {
-    if self.appContext != nil {
-      self.emit(event: event, payload: payload?.toDictionary(appContext: appContext))
+    let emit = { [weak self] in
+      guard let self, self.appContext != nil else {
+        return
+      }
+      self.emit(event: event, payload: payload?.toDictionary(appContext: self.appContext))
+    }
+
+    if Thread.isMainThread {
+      emit()
+    } else {
+      DispatchQueue.main.async(execute: emit)
     }
   }
 
