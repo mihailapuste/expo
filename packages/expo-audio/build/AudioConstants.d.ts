@@ -12,11 +12,13 @@ export type AudioLockScreenOptions = {
     showSeekBackward?: boolean;
     /**
      * Whether the next track button should be displayed on the lock screen.
+     * @platform android
      * @platform ios
      */
     showNextTrack?: boolean;
     /**
      * Whether the previous track button should be displayed on the lock screen.
+     * @platform android
      * @platform ios
      */
     showPreviousTrack?: boolean;

@@ -332,11 +332,13 @@ export type AudioEvents = {
   onRemoteSeekTo(data: { position: number }): void;
   /**
    * Fired when the next track command is triggered from the lock screen.
+   * @platform android
    * @platform ios
    */
   onRemoteNextTrack(): void;
   /**
    * Fired when the previous track command is triggered from the lock screen.
+   * @platform android
    * @platform ios
    */
   onRemotePreviousTrack(): void;
