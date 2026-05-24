@@ -1,26 +1,10 @@
-import {
-  AudioModule,
-  AudioSource,
-  type AudioLockScreenOptions,
-  type AudioLockScreenPlaybackInfo,
-  type AudioMetadata,
-  useAudioPlayer,
-  useAudioPlaylist,
-  useAudioPlaylistStatus,
-} from 'expo-audio';
-import Checkbox from 'expo-checkbox';
-import Slider from '@react-native-community/slider';
-import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
+import { AudioSource, useAudioPlaylist, useAudioPlaylistStatus } from 'expo-audio';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 
 import { BodyText } from '../../components/BodyText';
 import HeadingText from '../../components/HeadingText';
 import Colors from '../../constants/Colors';
-
-const PLAYLIST_ARTWORK_URLS = [
-  'https://images.unsplash.com/photo-1549138144-42ff3cdd2bf8?q=80&w=3504&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-  'https://images.unsplash.com/photo-1549228167-511375f69159?q=80&w=3676&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-];
 
 const INITIAL_SOURCES: AudioSource[] = [
   require('../../../assets/sounds/polonez.mp3'),
@@ -51,19 +35,6 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-function sanitizePlaybackNumber(value: number, fallback = 0): number {
-  return Number.isFinite(value) ? Math.max(value, 0) : fallback;
-}
-
-function getPlaylistTrackMetadata(trackName: string, index: number): AudioMetadata {
-  return {
-    title: trackName,
-    artist: 'Expo Audio Playlist',
-    albumTitle: 'Audio Playlist',
-    artworkUrl: PLAYLIST_ARTWORK_URLS[index % PLAYLIST_ARTWORK_URLS.length],
-  };
-}
-
 function Button({
   title,
   onPress,
@@ -85,172 +56,19 @@ function Button({
 
 export default function AudioPlaylistScreen() {
   const [addTrackIndex, setAddTrackIndex] = useState(0);
-  const [lockScreenControlsEnabled, setLockScreenControlsEnabled] = useState(false);
-  const [lockScreenOptions, setLockScreenOptions] = useState<AudioLockScreenOptions>({
-    showSeekForward: true,
-    showSeekBackward: true,
-    showNextTrack: true,
-    showPreviousTrack: true,
-  });
-  const [scrubPosition, setScrubPosition] = useState<number | null>(null);
 
   const playlist = useAudioPlaylist({
     sources: INITIAL_SOURCES,
     loop: 'none',
   });
-  const lockScreenPlayer = useAudioPlayer(null);
 
   const status = useAudioPlaylistStatus(playlist);
-  const isPlayingRef = useRef(status.playing);
-  const currentTimeRef = useRef(status.currentTime);
-  const durationRef = useRef(status.duration);
 
   const sources = playlist.sources;
   const currentSource = sources[status.currentIndex];
   const currentTrackName = currentSource
     ? (currentSource.name ?? getTrackName(currentSource.uri ?? ''))
     : 'No track';
-  const displayedCurrentTime = scrubPosition ?? status.currentTime;
-
-  const lockScreenMetadata = useMemo<AudioMetadata>(
-    () => getPlaylistTrackMetadata(currentTrackName, status.currentIndex),
-    [currentTrackName, status.currentIndex]
-  );
-  const lockScreenMetadataRef = useRef(lockScreenMetadata);
-
-  React.useEffect(() => {
-    AudioModule.setAudioModeAsync({
-      shouldPlayInBackground: true,
-      interruptionMode: 'doNotMix',
-      playsInSilentMode: true,
-      allowsRecording: false,
-    }).catch((error: unknown) =>
-      console.warn(`Error calling setAudioModeAsync: ${JSON.stringify(error)}`)
-    );
-  }, []);
-
-  React.useEffect(() => {
-    isPlayingRef.current = status.playing;
-  }, [status.playing]);
-
-  React.useEffect(() => {
-    currentTimeRef.current = status.currentTime;
-    durationRef.current = status.duration;
-  }, [status.currentTime, status.duration]);
-
-  React.useEffect(() => {
-    lockScreenMetadataRef.current = lockScreenMetadata;
-  }, [lockScreenMetadata]);
-
-  const seekPlaylistTo = React.useCallback(
-    (position: number) => {
-      const duration = durationRef.current;
-      const boundedPosition =
-        duration > 0 ? Math.max(0, Math.min(position, duration)) : Math.max(0, position);
-
-      return playlist.seekTo(boundedPosition).catch((error: unknown) => {
-        console.warn(`Error seeking playlist: ${JSON.stringify(error)}`);
-      });
-    },
-    [playlist]
-  );
-
-  React.useEffect(() => {
-    if (!lockScreenControlsEnabled) {
-      return;
-    }
-
-    lockScreenPlayer.setActiveForLockScreen(
-      true,
-      lockScreenMetadataRef.current,
-      lockScreenOptions
-    );
-  }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenOptions]);
-
-  React.useEffect(() => {
-    if (!lockScreenControlsEnabled) {
-      return;
-    }
-
-    lockScreenPlayer.updateLockScreenMetadata(lockScreenMetadata);
-  }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenMetadata]);
-
-  React.useEffect(() => {
-    if (!lockScreenControlsEnabled || Platform.OS !== 'ios') {
-      return;
-    }
-
-    const duration = sanitizePlaybackNumber(status.duration);
-    const playbackInfo: AudioLockScreenPlaybackInfo = {
-      currentTime: Math.min(sanitizePlaybackNumber(status.currentTime), duration),
-      duration,
-      isPlaying: status.playing,
-      playbackRate: sanitizePlaybackNumber(status.playbackRate, 1) || 1,
-      isLiveStream: false,
-    };
-
-    lockScreenPlayer.updateLockScreenPlaybackInfo(playbackInfo);
-  }, [
-    lockScreenPlayer,
-    lockScreenControlsEnabled,
-    status.currentTime,
-    status.duration,
-    status.playbackRate,
-    status.playing,
-  ]);
-
-  React.useEffect(() => {
-    const togglePlaylistPlayback = () => {
-      if (isPlayingRef.current) {
-        playlist.pause();
-      } else {
-        playlist.play();
-      }
-    };
-
-    const playSubscription = lockScreenPlayer.addListener('onRemotePlay', () => {
-      playlist.play();
-    });
-    const pauseSubscription = lockScreenPlayer.addListener('onRemotePause', () => {
-      playlist.pause();
-    });
-    const togglePlayPauseSubscription = lockScreenPlayer.addListener(
-      'onRemoteTogglePlayPause',
-      togglePlaylistPlayback
-    );
-    const seekForwardSubscription = lockScreenPlayer.addListener(
-      'onRemoteSeekForward',
-      ({ interval }) => {
-        seekPlaylistTo(currentTimeRef.current + interval);
-      }
-    );
-    const seekBackwardSubscription = lockScreenPlayer.addListener(
-      'onRemoteSeekBackward',
-      ({ interval }) => {
-        seekPlaylistTo(currentTimeRef.current - interval);
-      }
-    );
-    const seekToSubscription = lockScreenPlayer.addListener('onRemoteSeekTo', ({ position }) => {
-      seekPlaylistTo(position);
-    });
-    const nextSubscription = lockScreenPlayer.addListener('onRemoteNextTrack', () => {
-      playlist.next();
-    });
-    const previousSubscription = lockScreenPlayer.addListener('onRemotePreviousTrack', () => {
-      playlist.previous();
-    });
-
-    return () => {
-      playSubscription.remove();
-      pauseSubscription.remove();
-      togglePlayPauseSubscription.remove();
-      seekForwardSubscription.remove();
-      seekBackwardSubscription.remove();
-      seekToSubscription.remove();
-      nextSubscription.remove();
-      previousSubscription.remove();
-    };
-  }, [lockScreenPlayer, playlist, seekPlaylistTo]);
 
   const handleAddTrack = () => {
     const sourceToAdd = ADDITIONAL_SOURCES[addTrackIndex % ADDITIONAL_SOURCES.length];
@@ -260,25 +78,6 @@ export default function AudioPlaylistScreen() {
 
   const handleClear = () => {
     playlist.clear();
-  };
-
-  const toggleLockScreenControls = () => {
-    const shouldEnable = !lockScreenControlsEnabled;
-
-    if (!shouldEnable) {
-      lockScreenPlayer.setActiveForLockScreen(false);
-    }
-
-    setLockScreenControlsEnabled(shouldEnable);
-  };
-
-  const toggleLockScreenOption = (
-    option: 'showSeekForward' | 'showSeekBackward' | 'showNextTrack' | 'showPreviousTrack'
-  ) => {
-    setLockScreenOptions((currentOptions) => ({
-      ...currentOptions,
-      [option]: !currentOptions[option],
-    }));
   };
 
   return (
@@ -291,22 +90,19 @@ export default function AudioPlaylistScreen() {
       </View>
 
       <View style={styles.progressContainer}>
-        <Slider
-          disabled={sources.length === 0 || status.duration <= 0}
-          minimumValue={0}
-          maximumValue={Math.max(status.duration, 0)}
-          minimumTrackTintColor={Colors.tintColor}
-          maximumTrackTintColor={Colors.border}
-          value={displayedCurrentTime}
-          onValueChange={setScrubPosition}
-          onSlidingComplete={(position) => {
-            setScrubPosition(null);
-            seekPlaylistTo(position);
-          }}
-        />
+        <View style={styles.progressBar}>
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width: `${status.duration > 0 ? (status.currentTime / status.duration) * 100 : 0}%`,
+              },
+            ]}
+          />
+        </View>
         <View style={styles.timeContainer}>
           <BodyText color="secondary" style={styles.timeText}>
-            {formatTime(displayedCurrentTime)}
+            {formatTime(status.currentTime)}
           </BodyText>
           <BodyText color="secondary" style={styles.timeText}>
             {formatTime(status.duration)}
@@ -333,56 +129,6 @@ export default function AudioPlaylistScreen() {
             (status.currentIndex >= sources.length - 1 && status.loop !== 'all')
           }
         />
-      </View>
-
-      <View style={styles.controls}>
-        <Button
-          title="-10s"
-          onPress={() => seekPlaylistTo(status.currentTime - 10)}
-          disabled={sources.length === 0}
-        />
-        <Button
-          title="+10s"
-          onPress={() => seekPlaylistTo(status.currentTime + 10)}
-          disabled={sources.length === 0}
-        />
-      </View>
-
-      <HeadingText>Lock Screen Controls</HeadingText>
-      <View style={styles.lockScreenControls}>
-        <Button
-          title={`${lockScreenControlsEnabled ? 'Disable' : 'Enable'} Lock Screen controls`}
-          onPress={toggleLockScreenControls}
-          disabled={sources.length === 0}
-        />
-        <View style={styles.optionRow}>
-          <Checkbox
-            value={lockScreenOptions.showSeekBackward}
-            onValueChange={() => toggleLockScreenOption('showSeekBackward')}
-          />
-          <Text style={styles.optionText}>Seek backward</Text>
-        </View>
-        <View style={styles.optionRow}>
-          <Checkbox
-            value={lockScreenOptions.showPreviousTrack}
-            onValueChange={() => toggleLockScreenOption('showPreviousTrack')}
-          />
-          <Text style={styles.optionText}>Previous track</Text>
-        </View>
-        <View style={styles.optionRow}>
-          <Checkbox
-            value={lockScreenOptions.showSeekForward}
-            onValueChange={() => toggleLockScreenOption('showSeekForward')}
-          />
-          <Text style={styles.optionText}>Seek forward</Text>
-        </View>
-        <View style={styles.optionRow}>
-          <Checkbox
-            value={lockScreenOptions.showNextTrack}
-            onValueChange={() => toggleLockScreenOption('showNextTrack')}
-          />
-          <Text style={styles.optionText}>Next track</Text>
-        </View>
       </View>
 
       <HeadingText>Playlist ({sources.length} tracks)</HeadingText>
@@ -559,19 +305,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     marginBottom: 20,
-  },
-  lockScreenControls: {
-    gap: 10,
-    marginBottom: 20,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  optionText: {
-    fontSize: 16,
-    fontWeight: '500',
   },
   statusContainer: {
     backgroundColor: Colors.greyBackground,
