@@ -7,7 +7,7 @@ import type {
 } from './Audio.types';
 import type { AudioLockScreenOptions } from './AudioConstants';
 import { AUDIO_SAMPLE_UPDATE, PLAYBACK_STATUS_UPDATE } from './AudioEventKeys';
-import type { AudioPlayer, AudioEvents } from './AudioModule.types';
+import type { AudioPlayer, AudioEvents, AudioLockScreenPlaybackInfo } from './AudioModule.types';
 import { isAudioActive } from './AudioModule.web';
 import {
   getAudioContext,
@@ -295,6 +295,8 @@ export class AudioPlayerWeb
   updateLockScreenMetadata(metadata: AudioMetadata): void {
     mediaSessionController.updateMetadata(this, metadata);
   }
+
+  updateLockScreenPlaybackInfo(_playbackInfo: AudioLockScreenPlaybackInfo): void {}
 
   clearLockScreenControls(): void {
     mediaSessionController.clear(this);

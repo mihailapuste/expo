@@ -218,6 +218,7 @@ export class AudioPlayerWeb extends globalThis.expo.SharedObject {
     updateLockScreenMetadata(metadata) {
         mediaSessionController.updateMetadata(this, metadata);
     }
+    updateLockScreenPlaybackInfo(_playbackInfo) { }
     clearLockScreenControls() {
         mediaSessionController.clear(this);
     }
