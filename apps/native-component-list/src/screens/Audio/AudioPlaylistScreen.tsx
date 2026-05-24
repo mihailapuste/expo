@@ -208,7 +208,9 @@ export default function AudioPlaylistScreen() {
       }
     };
 
-    const playSubscription = lockScreenPlayer.addListener('onRemotePlay', togglePlaylistPlayback);
+    const playSubscription = lockScreenPlayer.addListener('onRemotePlay', () => {
+      playlist.play();
+    });
     const pauseSubscription = lockScreenPlayer.addListener('onRemotePause', () => {
       playlist.pause();
     });
