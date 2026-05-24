@@ -90,6 +90,8 @@ class AudioControlsService : MediaSessionService() {
 
         ACTION_SEEK_FORWARD -> currentPlayerRef.seekTo(currentPlayerRef.currentPosition + SEEK_INTERVAL_MS)
         ACTION_SEEK_BACKWARD -> currentPlayerRef.seekTo(currentPlayerRef.currentPosition - SEEK_INTERVAL_MS)
+        ACTION_NEXT_TRACK -> currentPlayer?.emit(REMOTE_NEXT_TRACK_EVENT)
+        ACTION_PREVIOUS_TRACK -> currentPlayer?.emit(REMOTE_PREVIOUS_TRACK_EVENT)
       }
     }
 
@@ -390,6 +392,26 @@ class AudioControlsService : MediaSessionService() {
     }
   }
 
+  private fun createMediaSessionCallback(): AudioMediaSessionCallback {
+    return AudioMediaSessionCallback { action ->
+      val context = appContext
+      if (context == null) {
+        emitRemoteCommand(action)
+      } else {
+        context.mainQueue.launch {
+          emitRemoteCommand(action)
+        }
+      }
+    }
+  }
+
+  private fun emitRemoteCommand(action: String) {
+    when (action) {
+      ACTION_NEXT_TRACK -> currentPlayer?.emit(REMOTE_NEXT_TRACK_EVENT)
+      ACTION_PREVIOUS_TRACK -> currentPlayer?.emit(REMOTE_PREVIOUS_TRACK_EVENT)
+    }
+  }
+
   private fun setActivePlayerInternal(
     player: AudioPlayer?,
     metadata: Metadata? = null,
@@ -426,7 +448,7 @@ class AudioControlsService : MediaSessionService() {
           updateMetadata(metadata)
         }
         val session = MediaSession.Builder(context, sessionPlayer)
-          .setCallback(AudioMediaSessionCallback())
+          .setCallback(createMediaSessionCallback())
           .build()
 
         // Replace the basic media session with a session connected to our playback service.
@@ -507,7 +529,7 @@ class AudioControlsService : MediaSessionService() {
           updateMetadata(metadata)
         }
         val session = MediaSession.Builder(context, sessionPlayer)
-          .setCallback(AudioMediaSessionCallback())
+          .setCallback(createMediaSessionCallback())
           .build()
 
         player.mediaSession.release()
@@ -615,6 +637,9 @@ class AudioControlsService : MediaSessionService() {
     const val ACTION_SEEK_BACKWARD = "expo.modules.audio.action.SEEK_BACKWARD"
     const val ACTION_NEXT_TRACK = "expo.modules.audio.action.NEXT_TRACK"
     const val ACTION_PREVIOUS_TRACK = "expo.modules.audio.action.PREVIOUS_TRACK"
+
+    private const val REMOTE_NEXT_TRACK_EVENT = "onRemoteNextTrack"
+    private const val REMOTE_PREVIOUS_TRACK_EVENT = "onRemotePreviousTrack"
 
     const val SEEK_INTERVAL_MS = 10000L
   }
