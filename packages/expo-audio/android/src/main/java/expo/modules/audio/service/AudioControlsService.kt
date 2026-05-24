@@ -293,7 +293,13 @@ class AudioControlsService : MediaSessionService() {
           .setDisplayName("Seek Backward")
           .setEnabled(true)
           .setSessionCommand(SessionCommand(ACTION_SEEK_BACKWARD, Bundle.EMPTY))
-          .setSlots(CommandButton.SLOT_BACK)
+          .setSlots(
+            if (currentOptions?.showPreviousTrack == true) {
+              CommandButton.SLOT_BACK_SECONDARY
+            } else {
+              CommandButton.SLOT_BACK
+            }
+          )
           .build()
       )
     }
@@ -315,7 +321,13 @@ class AudioControlsService : MediaSessionService() {
           .setDisplayName("Seek Forward")
           .setEnabled(true)
           .setSessionCommand(SessionCommand(ACTION_SEEK_FORWARD, Bundle.EMPTY))
-          .setSlots(CommandButton.SLOT_FORWARD)
+          .setSlots(
+            if (currentOptions?.showNextTrack == true) {
+              CommandButton.SLOT_FORWARD_SECONDARY
+            } else {
+              CommandButton.SLOT_FORWARD
+            }
+          )
           .build()
       )
     }
