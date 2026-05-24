@@ -189,8 +189,24 @@ class AudioControlsService : MediaSessionService() {
 
     // Older Android system UI expects explicit notification actions for transport controls.
     if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
-      val compactViewIndices = mutableListOf<Int>()
+      var previousTrackIndex: Int? = null
+      var seekBackwardIndex: Int? = null
+      var playPauseIndex: Int? = null
+      var seekForwardIndex: Int? = null
+      var nextTrackIndex: Int? = null
       var currentIndex = 0
+
+      if (currentOptions?.showPreviousTrack == true) {
+        builder.addAction(
+          NotificationCompat.Action(
+            androidx.media3.session.R.drawable.media3_icon_previous,
+            "Previous",
+            buildActionPendingIntent(ACTION_PREVIOUS_TRACK)
+          )
+        )
+        previousTrackIndex = currentIndex
+        currentIndex++
+      }
 
       if (currentOptions?.showSeekBackward == true) {
         builder.addAction(
@@ -200,7 +216,7 @@ class AudioControlsService : MediaSessionService() {
             buildActionPendingIntent(ACTION_SEEK_BACKWARD)
           )
         )
-        compactViewIndices.add(currentIndex)
+        seekBackwardIndex = currentIndex
         currentIndex++
       }
 
@@ -215,7 +231,7 @@ class AudioControlsService : MediaSessionService() {
           buildActionPendingIntent(if (session.player.isPlaying) ACTION_PAUSE else ACTION_PLAY)
         )
       )
-      compactViewIndices.add(currentIndex)
+      playPauseIndex = currentIndex
       currentIndex++
 
       if (currentOptions?.showSeekForward == true) {
@@ -226,9 +242,26 @@ class AudioControlsService : MediaSessionService() {
             buildActionPendingIntent(ACTION_SEEK_FORWARD)
           )
         )
-        compactViewIndices.add(currentIndex)
+        seekForwardIndex = currentIndex
+        currentIndex++
       }
 
+      if (currentOptions?.showNextTrack == true) {
+        builder.addAction(
+          NotificationCompat.Action(
+            androidx.media3.session.R.drawable.media3_icon_next,
+            "Next",
+            buildActionPendingIntent(ACTION_NEXT_TRACK)
+          )
+        )
+        nextTrackIndex = currentIndex
+      }
+
+      val compactViewIndices = listOfNotNull(
+        previousTrackIndex ?: seekBackwardIndex,
+        playPauseIndex,
+        nextTrackIndex ?: seekForwardIndex
+      )
       style.setShowActionsInCompactView(*compactViewIndices.toIntArray())
     }
 
@@ -239,6 +272,17 @@ class AudioControlsService : MediaSessionService() {
   private fun updateSessionCustomLayout(isPlaying: Boolean) {
     val session = mediaSession ?: return
     val mediaButtons = mutableListOf<CommandButton>()
+
+    if (currentOptions?.showPreviousTrack == true) {
+      mediaButtons.add(
+        CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+          .setDisplayName("Previous")
+          .setEnabled(true)
+          .setSessionCommand(SessionCommand(ACTION_PREVIOUS_TRACK, Bundle.EMPTY))
+          .setSlots(CommandButton.SLOT_BACK)
+          .build()
+      )
+    }
 
     // Add seek backward button if enabled
     if (currentOptions?.showSeekBackward == true) {
@@ -269,6 +313,17 @@ class AudioControlsService : MediaSessionService() {
           .setDisplayName("Seek Forward")
           .setEnabled(true)
           .setSessionCommand(SessionCommand(ACTION_SEEK_FORWARD, Bundle.EMPTY))
+          .setSlots(CommandButton.SLOT_FORWARD)
+          .build()
+      )
+    }
+
+    if (currentOptions?.showNextTrack == true) {
+      mediaButtons.add(
+        CommandButton.Builder(CommandButton.ICON_NEXT)
+          .setDisplayName("Next")
+          .setEnabled(true)
+          .setSessionCommand(SessionCommand(ACTION_NEXT_TRACK, Bundle.EMPTY))
           .setSlots(CommandButton.SLOT_FORWARD)
           .build()
       )
@@ -558,6 +613,8 @@ class AudioControlsService : MediaSessionService() {
 
     const val ACTION_SEEK_FORWARD = "expo.modules.audio.action.SEEK_FORWARD"
     const val ACTION_SEEK_BACKWARD = "expo.modules.audio.action.SEEK_BACKWARD"
+    const val ACTION_NEXT_TRACK = "expo.modules.audio.action.NEXT_TRACK"
+    const val ACTION_PREVIOUS_TRACK = "expo.modules.audio.action.PREVIOUS_TRACK"
 
     const val SEEK_INTERVAL_MS = 10000L
   }
