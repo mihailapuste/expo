@@ -419,8 +419,16 @@ class AudioControlsService : MediaSessionService() {
 
   private fun emitRemoteCommand(action: String) {
     when (action) {
-      ACTION_NEXT_TRACK -> currentPlayer?.emit(REMOTE_NEXT_TRACK_EVENT)
-      ACTION_PREVIOUS_TRACK -> currentPlayer?.emit(REMOTE_PREVIOUS_TRACK_EVENT)
+      ACTION_NEXT_TRACK -> {
+        if (currentOptions?.showNextTrack == true) {
+          currentPlayer?.emit(REMOTE_NEXT_TRACK_EVENT)
+        }
+      }
+      ACTION_PREVIOUS_TRACK -> {
+        if (currentOptions?.showPreviousTrack == true) {
+          currentPlayer?.emit(REMOTE_PREVIOUS_TRACK_EVENT)
+        }
+      }
     }
   }
 
