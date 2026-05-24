@@ -43,8 +43,5 @@
     "react": "*",
     "react-native": "*",
     "expo-asset": "*"
-  },
-  "jest": {
-    "preset": "expo-module-scripts"
   }
 }
