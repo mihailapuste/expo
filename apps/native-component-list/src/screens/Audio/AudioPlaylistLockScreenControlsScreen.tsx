@@ -1,3 +1,4 @@
+import Slider from '@react-native-community/slider';
 import {
   AudioModule,
   AudioSource,
@@ -9,7 +10,6 @@ import {
   useAudioPlaylistStatus,
 } from 'expo-audio';
 import Checkbox from 'expo-checkbox';
-import Slider from '@react-native-community/slider';
 import React, { useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
 
@@ -160,11 +160,7 @@ export default function AudioPlaylistLockScreenControlsScreen() {
       return;
     }
 
-    lockScreenPlayer.setActiveForLockScreen(
-      true,
-      lockScreenMetadataRef.current,
-      lockScreenOptions
-    );
+    lockScreenPlayer.setActiveForLockScreen(true, lockScreenMetadataRef.current, lockScreenOptions);
   }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenOptions]);
 
   React.useEffect(() => {
