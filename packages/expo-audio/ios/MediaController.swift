@@ -9,6 +9,12 @@ class MediaController {
   private var remoteCommandCenter = MPRemoteCommandCenter.shared()
   private var nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
 
+  private var playTarget: Any?
+  private var pauseTarget: Any?
+  private var togglePlayPauseTarget: Any?
+  private var changePlaybackPositionTarget: Any?
+  private var skipForwardTarget: Any?
+  private var skipBackwardTarget: Any?
   private var nextTrackTarget: Any?
   private var previousTrackTarget: Any?
 
@@ -285,9 +291,9 @@ class MediaController {
   }
 
   private func enableRemoteCommands(options: LockScreenOptions?) {
-    removeTrackCommandTargets()
+    removeRemoteCommandTargets()
 
-    remoteCommandCenter.playCommand.addTarget { [weak self] _ in
+    playTarget = remoteCommandCenter.playCommand.addTarget { [weak self] _ in
       guard let player = self?.activePlayer else {
         return .commandFailed
       }
@@ -297,7 +303,7 @@ class MediaController {
       return .success
     }
 
-    remoteCommandCenter.pauseCommand.addTarget { [weak self] _ in
+    pauseTarget = remoteCommandCenter.pauseCommand.addTarget { [weak self] _ in
       guard let player = self?.activePlayer else {
         return .commandFailed
       }
@@ -307,7 +313,7 @@ class MediaController {
       return .success
     }
 
-    remoteCommandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+    togglePlayPauseTarget = remoteCommandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
       guard let player = self?.activePlayer else {
         return .commandFailed
       }
@@ -321,7 +327,8 @@ class MediaController {
       return .success
     }
 
-    remoteCommandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
+    changePlaybackPositionTarget = remoteCommandCenter.changePlaybackPositionCommand.addTarget {
+      [weak self] event in
       guard let player = self?.activePlayer,
       let event = event as? MPChangePlaybackPositionCommandEvent else {
         return .commandFailed
@@ -335,7 +342,7 @@ class MediaController {
     }
 
     remoteCommandCenter.skipForwardCommand.preferredIntervals = [10.0]
-    remoteCommandCenter.skipForwardCommand.addTarget { [weak self] event in
+    skipForwardTarget = remoteCommandCenter.skipForwardCommand.addTarget { [weak self] event in
       guard let player = self?.activePlayer,
       let event = event as? MPSkipIntervalCommandEvent else {
         return .commandFailed
@@ -350,7 +357,7 @@ class MediaController {
     }
 
     remoteCommandCenter.skipBackwardCommand.preferredIntervals = [10.0]
-    remoteCommandCenter.skipBackwardCommand.addTarget { [weak self] event in
+    skipBackwardTarget = remoteCommandCenter.skipBackwardCommand.addTarget { [weak self] event in
       guard let player = self?.activePlayer,
       let event = event as? MPSkipIntervalCommandEvent else {
         return .commandFailed
@@ -402,23 +409,41 @@ class MediaController {
     remoteCommandCenter.nextTrackCommand.isEnabled = false
     remoteCommandCenter.previousTrackCommand.isEnabled = false
 
-    // Remove event targets
-    remoteCommandCenter.playCommand.removeTarget(self)
-    remoteCommandCenter.pauseCommand.removeTarget(self)
-    remoteCommandCenter.togglePlayPauseCommand.removeTarget(self)
-    remoteCommandCenter.changePlaybackPositionCommand.removeTarget(self)
-    remoteCommandCenter.skipForwardCommand.removeTarget(self)
-    remoteCommandCenter.skipBackwardCommand.removeTarget(self)
-    removeTrackCommandTargets()
+    removeRemoteCommandTargets()
   }
 
-  private func removeTrackCommandTargets() {
+  private func removeRemoteCommandTargets() {
+    if let playTarget {
+      remoteCommandCenter.playCommand.removeTarget(playTarget)
+    }
+    if let pauseTarget {
+      remoteCommandCenter.pauseCommand.removeTarget(pauseTarget)
+    }
+    if let togglePlayPauseTarget {
+      remoteCommandCenter.togglePlayPauseCommand.removeTarget(togglePlayPauseTarget)
+    }
+    if let changePlaybackPositionTarget {
+      remoteCommandCenter.changePlaybackPositionCommand.removeTarget(changePlaybackPositionTarget)
+    }
+    if let skipForwardTarget {
+      remoteCommandCenter.skipForwardCommand.removeTarget(skipForwardTarget)
+    }
+    if let skipBackwardTarget {
+      remoteCommandCenter.skipBackwardCommand.removeTarget(skipBackwardTarget)
+    }
     if let nextTrackTarget {
       remoteCommandCenter.nextTrackCommand.removeTarget(nextTrackTarget)
     }
     if let previousTrackTarget {
       remoteCommandCenter.previousTrackCommand.removeTarget(previousTrackTarget)
     }
+
+    playTarget = nil
+    pauseTarget = nil
+    togglePlayPauseTarget = nil
+    changePlaybackPositionTarget = nil
+    skipForwardTarget = nil
+    skipBackwardTarget = nil
     nextTrackTarget = nil
     previousTrackTarget = nil
   }

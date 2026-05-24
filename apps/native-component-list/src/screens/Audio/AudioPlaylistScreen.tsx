@@ -263,10 +263,8 @@ export default function AudioPlaylistScreen() {
   const toggleLockScreenControls = () => {
     const shouldEnable = !lockScreenControlsEnabled;
 
-    lockScreenPlayer.setActiveForLockScreen(shouldEnable, lockScreenMetadata, lockScreenOptions);
-
     if (!shouldEnable) {
-      lockScreenPlayer.clearLockScreenControls();
+      lockScreenPlayer.setActiveForLockScreen(false);
     }
 
     setLockScreenControlsEnabled(shouldEnable);
