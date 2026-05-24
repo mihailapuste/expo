@@ -1,5 +1,6 @@
 import type { AudioMetadata } from './Audio.types';
 import type { AudioLockScreenOptions } from './AudioConstants';
+import type { AudioLockScreenPlaybackInfo } from './AudioModule.types';
 interface MediaSessionPlayer {
     play(): void;
     pause(): void;
@@ -18,6 +19,9 @@ declare class MediaSessionController {
     clear(player: MediaSessionPlayer): void;
     updatePlaybackState(player: MediaSessionPlayer): void;
     updatePositionState(player: MediaSessionPlayer): void;
+    updateMediaSessionPlaybackInfo(player: MediaSessionPlayer, playbackInfo: AudioLockScreenPlaybackInfo): void;
+    private _setPositionState;
+    private _clearPositionState;
     isActive(player: MediaSessionPlayer): boolean;
     getActiveState(player: MediaSessionPlayer): {
         metadata: AudioMetadata | null;

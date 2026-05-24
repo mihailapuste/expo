@@ -296,7 +296,9 @@ export class AudioPlayerWeb
     mediaSessionController.updateMetadata(this, metadata);
   }
 
-  updateLockScreenPlaybackInfo(_playbackInfo: AudioLockScreenPlaybackInfo): void {}
+  updateLockScreenPlaybackInfo(playbackInfo: AudioLockScreenPlaybackInfo): void {
+    mediaSessionController.updateMediaSessionPlaybackInfo(this, playbackInfo);
+  }
 
   clearLockScreenControls(): void {
     mediaSessionController.clear(this);

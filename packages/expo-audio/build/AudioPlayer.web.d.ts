@@ -45,7 +45,7 @@ export declare class AudioPlayerWeb extends globalThis.expo.SharedObject<AudioEv
     release(): void;
     setActiveForLockScreen(active: boolean, metadata?: AudioMetadata, options?: AudioLockScreenOptions): void;
     updateLockScreenMetadata(metadata: AudioMetadata): void;
-    updateLockScreenPlaybackInfo(_playbackInfo: AudioLockScreenPlaybackInfo): void;
+    updateLockScreenPlaybackInfo(playbackInfo: AudioLockScreenPlaybackInfo): void;
     clearLockScreenControls(): void;
     _isCrossOrigin(): boolean;
     _createMediaElement(): HTMLAudioElement;

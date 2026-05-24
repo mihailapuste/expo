@@ -64,17 +64,39 @@ class MediaSessionController {
             return;
         if (this.activePlayer !== player)
             return;
-        const duration = player.duration;
+        this._setPositionState(player.currentTime, player.duration, player.playbackRate);
+    }
+    updateMediaSessionPlaybackInfo(player, playbackInfo) {
+        if (!navigator.mediaSession)
+            return;
+        if (this.activePlayer !== player)
+            return;
+        navigator.mediaSession.playbackState = playbackInfo.isPlaying ? 'playing' : 'paused';
+        if (playbackInfo.isLiveStream === true) {
+            this._clearPositionState();
+            return;
+        }
+        this._setPositionState(playbackInfo.currentTime, playbackInfo.duration, playbackInfo.playbackRate);
+    }
+    _setPositionState(currentTime, duration, playbackRate) {
         if (!Number.isFinite(duration) || duration <= 0)
             return;
-        const position = Math.min(Math.max(player.currentTime, 0), duration);
-        const playbackRate = player.playbackRate || 1;
+        const position = Number.isFinite(currentTime)
+            ? Math.min(Math.max(currentTime, 0), duration)
+            : 0;
+        const safePlaybackRate = Number.isFinite(playbackRate) && playbackRate > 0 ? playbackRate : 1;
         try {
             navigator.mediaSession.setPositionState({
                 duration,
-                playbackRate,
+                playbackRate: safePlaybackRate,
                 position,
             });
+        }
+        catch { }
+    }
+    _clearPositionState() {
+        try {
+            navigator.mediaSession.setPositionState();
         }
         catch { }
     }
