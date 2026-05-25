@@ -5,6 +5,13 @@ interface MediaSessionPlayer {
     play(): void;
     pause(): void;
     seekTo(seconds: number): Promise<void>;
+    emitRemotePlay?(): void;
+    emitRemotePause?(): void;
+    emitRemoteSeekForward?(interval: number): void;
+    emitRemoteSeekBackward?(interval: number): void;
+    emitRemoteSeekTo?(position: number): void;
+    emitRemoteNextTrack?(): void;
+    emitRemotePreviousTrack?(): void;
     readonly playing: boolean;
     readonly currentTime: number;
     readonly duration: number;

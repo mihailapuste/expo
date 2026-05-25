@@ -172,7 +172,7 @@ export default function AudioPlaylistLockScreenControlsScreen() {
   }, [lockScreenPlayer, lockScreenControlsEnabled, lockScreenMetadata]);
 
   React.useEffect(() => {
-    if (!lockScreenControlsEnabled || Platform.OS !== 'ios') {
+    if (!lockScreenControlsEnabled || (Platform.OS !== 'ios' && Platform.OS !== 'web')) {
       return;
     }
 

@@ -304,6 +304,34 @@ export class AudioPlayerWeb
     mediaSessionController.clear(this);
   }
 
+  emitRemotePlay(): void {
+    this.emit('onRemotePlay');
+  }
+
+  emitRemotePause(): void {
+    this.emit('onRemotePause');
+  }
+
+  emitRemoteSeekForward(interval: number): void {
+    this.emit('onRemoteSeekForward', { interval });
+  }
+
+  emitRemoteSeekBackward(interval: number): void {
+    this.emit('onRemoteSeekBackward', { interval });
+  }
+
+  emitRemoteSeekTo(position: number): void {
+    this.emit('onRemoteSeekTo', { position });
+  }
+
+  emitRemoteNextTrack(): void {
+    this.emit('onRemoteNextTrack');
+  }
+
+  emitRemotePreviousTrack(): void {
+    this.emit('onRemotePreviousTrack');
+  }
+
   _isCrossOrigin(): boolean {
     try {
       return new URL(this.media.src).origin !== window.location.origin;

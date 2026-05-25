@@ -317,7 +317,7 @@ export class AudioPlaylistWeb
 
     this._currentIndex = newIndex;
     this._isLoaded = false;
-    this._isBuffering = true;
+    this._isBuffering = wasPlaying;
     this._knownDuration = 0;
 
     const isNextSequential = newIndex === (previousIndex + 1) % this._sources.length;
@@ -411,6 +411,10 @@ export class AudioPlaylistWeb
         this._knownDuration = duration;
       }
     }
+    if (media.readyState >= 2) {
+      this._isLoaded = true;
+      this._isBuffering = false;
+    }
 
     media.ontimeupdate = () => {
       const now = media.currentTime;
@@ -483,6 +487,7 @@ export class AudioPlaylistWeb
   private _createMediaElement(source: AudioSource): HTMLAudioElement {
     const uri = getSourceUri(source);
     const media = new Audio(uri);
+    media.preload = 'auto';
     if (this._crossOrigin !== undefined) {
       media.crossOrigin = this._crossOrigin;
     }

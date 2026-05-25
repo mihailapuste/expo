@@ -139,13 +139,16 @@ class MediaSessionController {
         if (!player)
             return;
         this._setHandler('play', () => {
+            player.emitRemotePlay?.();
             player.play();
         });
         this._setHandler('pause', () => {
+            player.emitRemotePause?.();
             player.pause();
         });
         this._setHandler('seekto', (details) => {
             if (details.seekTime != null) {
+                player.emitRemoteSeekTo?.(details.seekTime);
                 player.seekTo(details.seekTime);
                 this.updatePositionState(player);
             }
@@ -153,29 +156,43 @@ class MediaSessionController {
         const seekForward = (details) => {
             const skipTime = details.seekOffset ?? SKIP_SECONDS;
             const newTime = Math.min(player.currentTime + skipTime, player.duration || 0);
+            player.emitRemoteSeekForward?.(skipTime);
             player.seekTo(newTime);
             this.updatePositionState(player);
         };
         const seekBackward = (details) => {
             const skipTime = details.seekOffset ?? SKIP_SECONDS;
             const newTime = Math.max(player.currentTime - skipTime, 0);
+            player.emitRemoteSeekBackward?.(skipTime);
             player.seekTo(newTime);
             this.updatePositionState(player);
         };
         if (this.options?.showSeekForward === true) {
             this._setHandler('seekforward', seekForward);
-            this._setHandler('nexttrack', seekForward);
         }
         else {
             this._setHandler('seekforward', null);
+        }
+        if (this.options?.showNextTrack === true) {
+            this._setHandler('nexttrack', () => {
+                player.emitRemoteNextTrack?.();
+            });
+        }
+        else {
             this._setHandler('nexttrack', null);
         }
         if (this.options?.showSeekBackward === true) {
             this._setHandler('seekbackward', seekBackward);
-            this._setHandler('previoustrack', seekBackward);
         }
         else {
             this._setHandler('seekbackward', null);
+        }
+        if (this.options?.showPreviousTrack === true) {
+            this._setHandler('previoustrack', () => {
+                player.emitRemotePreviousTrack?.();
+            });
+        }
+        else {
             this._setHandler('previoustrack', null);
         }
     }

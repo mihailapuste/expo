@@ -47,6 +47,13 @@ export declare class AudioPlayerWeb extends globalThis.expo.SharedObject<AudioEv
     updateLockScreenMetadata(metadata: AudioMetadata): void;
     updateLockScreenPlaybackInfo(playbackInfo: AudioLockScreenPlaybackInfo): void;
     clearLockScreenControls(): void;
+    emitRemotePlay(): void;
+    emitRemotePause(): void;
+    emitRemoteSeekForward(interval: number): void;
+    emitRemoteSeekBackward(interval: number): void;
+    emitRemoteSeekTo(position: number): void;
+    emitRemoteNextTrack(): void;
+    emitRemotePreviousTrack(): void;
     _isCrossOrigin(): boolean;
     _createMediaElement(): HTMLAudioElement;
 }

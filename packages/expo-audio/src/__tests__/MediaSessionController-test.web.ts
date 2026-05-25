@@ -18,6 +18,13 @@ function createPlayer(overrides: Partial<TestPlayer> = {}): TestPlayer {
     play: jest.fn(),
     pause: jest.fn(),
     seekTo: jest.fn().mockResolvedValue(undefined),
+    emitRemotePlay: jest.fn(),
+    emitRemotePause: jest.fn(),
+    emitRemoteSeekForward: jest.fn(),
+    emitRemoteSeekBackward: jest.fn(),
+    emitRemoteSeekTo: jest.fn(),
+    emitRemoteNextTrack: jest.fn(),
+    emitRemotePreviousTrack: jest.fn(),
     playing: false,
     currentTime: 5,
     duration: 60,
@@ -40,6 +47,19 @@ function mockMediaSession(): MockMediaSession {
   });
 
   return mediaSession;
+}
+
+function getActionHandler(
+  mediaSession: MockMediaSession,
+  action: MediaSessionAction
+): MediaSessionActionHandler | null {
+  for (let index = mediaSession.setActionHandler.mock.calls.length - 1; index >= 0; index--) {
+    const [registeredAction, handler] = mediaSession.setActionHandler.mock.calls[index];
+    if (registeredAction === action) {
+      return handler;
+    }
+  }
+  return null;
 }
 
 function clearMediaSessionMock() {
@@ -133,6 +153,56 @@ describe('MediaSessionController', () => {
 
     expect(mediaSession.playbackState).toBe('none');
     expect(mediaSession.setPositionState).not.toHaveBeenCalled();
+  });
+
+  it('routes browser Media Session play and pause commands through player remote events', () => {
+    const mediaSession = mockMediaSession();
+    activePlayer = createPlayer();
+    mediaSessionController.setActivePlayer(activePlayer);
+
+    getActionHandler(mediaSession, 'play')?.({});
+    getActionHandler(mediaSession, 'pause')?.({});
+
+    expect(activePlayer.emitRemotePlay).toHaveBeenCalledTimes(1);
+    expect(activePlayer.play).toHaveBeenCalledTimes(1);
+    expect(activePlayer.emitRemotePause).toHaveBeenCalledTimes(1);
+    expect(activePlayer.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes browser Media Session seek commands through player remote events', () => {
+    const mediaSession = mockMediaSession();
+    activePlayer = createPlayer({ currentTime: 20, duration: 60 });
+    mediaSessionController.setActivePlayer(activePlayer, undefined, {
+      showSeekForward: true,
+      showSeekBackward: true,
+    });
+
+    getActionHandler(mediaSession, 'seekforward')?.({ seekOffset: 15 });
+    getActionHandler(mediaSession, 'seekbackward')?.({ seekOffset: 5 });
+    getActionHandler(mediaSession, 'seekto')?.({ seekTime: 30 });
+
+    expect(activePlayer.emitRemoteSeekForward).toHaveBeenCalledWith(15);
+    expect(activePlayer.emitRemoteSeekBackward).toHaveBeenCalledWith(5);
+    expect(activePlayer.emitRemoteSeekTo).toHaveBeenCalledWith(30);
+    expect(activePlayer.seekTo).toHaveBeenCalledWith(35);
+    expect(activePlayer.seekTo).toHaveBeenCalledWith(15);
+    expect(activePlayer.seekTo).toHaveBeenCalledWith(30);
+  });
+
+  it('routes browser Media Session next and previous commands through track remote events', () => {
+    const mediaSession = mockMediaSession();
+    activePlayer = createPlayer();
+    mediaSessionController.setActivePlayer(activePlayer, undefined, {
+      showNextTrack: true,
+      showPreviousTrack: true,
+    });
+
+    getActionHandler(mediaSession, 'nexttrack')?.({});
+    getActionHandler(mediaSession, 'previoustrack')?.({});
+
+    expect(activePlayer.emitRemoteNextTrack).toHaveBeenCalledTimes(1);
+    expect(activePlayer.emitRemotePreviousTrack).toHaveBeenCalledTimes(1);
+    expect(activePlayer.seekTo).not.toHaveBeenCalled();
   });
 
   it('does not throw when browser Media Session is unavailable', () => {

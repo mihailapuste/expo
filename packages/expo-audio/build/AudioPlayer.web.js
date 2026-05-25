@@ -224,6 +224,27 @@ export class AudioPlayerWeb extends globalThis.expo.SharedObject {
     clearLockScreenControls() {
         mediaSessionController.clear(this);
     }
+    emitRemotePlay() {
+        this.emit('onRemotePlay');
+    }
+    emitRemotePause() {
+        this.emit('onRemotePause');
+    }
+    emitRemoteSeekForward(interval) {
+        this.emit('onRemoteSeekForward', { interval });
+    }
+    emitRemoteSeekBackward(interval) {
+        this.emit('onRemoteSeekBackward', { interval });
+    }
+    emitRemoteSeekTo(position) {
+        this.emit('onRemoteSeekTo', { position });
+    }
+    emitRemoteNextTrack() {
+        this.emit('onRemoteNextTrack');
+    }
+    emitRemotePreviousTrack() {
+        this.emit('onRemotePreviousTrack');
+    }
     _isCrossOrigin() {
         try {
             return new URL(this.media.src).origin !== window.location.origin;

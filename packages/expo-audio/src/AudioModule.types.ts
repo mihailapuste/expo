@@ -305,11 +305,13 @@ export type AudioEvents = {
   /**
    * Fired when the play command is triggered from the lock screen.
    * @platform ios
+   * @platform web
    */
   onRemotePlay(): void;
   /**
    * Fired when the pause command is triggered from the lock screen.
    * @platform ios
+   * @platform web
    */
   onRemotePause(): void;
   /**
@@ -320,28 +322,33 @@ export type AudioEvents = {
   /**
    * Fired when the seek forward command is triggered from the lock screen.
    * @platform ios
+   * @platform web
    */
   onRemoteSeekForward(data: { interval: number }): void;
   /**
    * Fired when the seek backward command is triggered from the lock screen.
    * @platform ios
+   * @platform web
    */
   onRemoteSeekBackward(data: { interval: number }): void;
   /**
    * Fired when the playback position is changed from the lock screen.
    * @platform ios
+   * @platform web
    */
   onRemoteSeekTo(data: { position: number }): void;
   /**
    * Fired when the next track command is triggered from the lock screen.
    * @platform android
    * @platform ios
+   * @platform web
    */
   onRemoteNextTrack(): void;
   /**
    * Fired when the previous track command is triggered from the lock screen.
    * @platform android
    * @platform ios
+   * @platform web
    */
   onRemotePreviousTrack(): void;
 };
