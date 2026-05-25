@@ -76,11 +76,15 @@ class MediaSessionController {
             this._clearPositionState();
             return;
         }
-        this._setPositionState(playbackInfo.currentTime, playbackInfo.duration, playbackInfo.playbackRate);
+        const didSetPositionState = this._setPositionState(playbackInfo.currentTime, playbackInfo.duration, playbackInfo.playbackRate);
+        if (!didSetPositionState) {
+            this._clearPositionState();
+        }
     }
     _setPositionState(currentTime, duration, playbackRate) {
-        if (!Number.isFinite(duration) || duration <= 0)
-            return;
+        if (!Number.isFinite(duration) || duration <= 0) {
+            return false;
+        }
         const position = Number.isFinite(currentTime)
             ? Math.min(Math.max(currentTime, 0), duration)
             : 0;
@@ -91,8 +95,10 @@ class MediaSessionController {
                 playbackRate: safePlaybackRate,
                 position,
             });
+            return true;
         }
         catch { }
+        return false;
     }
     _clearPositionState() {
         try {

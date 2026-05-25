@@ -20,9 +20,10 @@ import type { AudioLockScreenOptions } from './AudioConstants';
 import type { AudioStream } from './AudioStream.types';
 
 /**
- * Playback values to display in native lock screen controls.
+ * Playback values to display in native lock screen controls or browser Media Session controls.
  * @hidden
  * @platform ios
+ * @platform web
  */
 export type AudioLockScreenPlaybackInfo = {
   currentTime: number;
@@ -246,9 +247,10 @@ export declare class AudioPlayer extends SharedObject<AudioEvents> {
   updateLockScreenMetadata(metadata: AudioMetadata): void;
 
   /**
-   * Updates playback position displayed on the lock screen for this player.
+   * Updates playback position displayed in native lock screen controls or browser Media Session controls.
    * @hidden
    * @platform ios
+   * @platform web
    */
   updateLockScreenPlaybackInfo(playbackInfo: AudioLockScreenPlaybackInfo): void;
 
