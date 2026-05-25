@@ -7,7 +7,7 @@ import type {
 } from './Audio.types';
 import type { AudioLockScreenOptions } from './AudioConstants';
 import { AUDIO_SAMPLE_UPDATE, PLAYBACK_STATUS_UPDATE } from './AudioEventKeys';
-import type { AudioPlayer, AudioEvents } from './AudioModule.types';
+import type { AudioPlayer, AudioEvents, AudioLockScreenPlaybackInfo } from './AudioModule.types';
 import { isAudioActive } from './AudioModule.web';
 import {
   getAudioContext,
@@ -296,8 +296,40 @@ export class AudioPlayerWeb
     mediaSessionController.updateMetadata(this, metadata);
   }
 
+  updateLockScreenPlaybackInfo(playbackInfo: AudioLockScreenPlaybackInfo): void {
+    mediaSessionController.updateMediaSessionPlaybackInfo(this, playbackInfo);
+  }
+
   clearLockScreenControls(): void {
     mediaSessionController.clear(this);
+  }
+
+  emitRemotePlay(): void {
+    this.emit('onRemotePlay');
+  }
+
+  emitRemotePause(): void {
+    this.emit('onRemotePause');
+  }
+
+  emitRemoteSeekForward(interval: number): void {
+    this.emit('onRemoteSeekForward', { interval });
+  }
+
+  emitRemoteSeekBackward(interval: number): void {
+    this.emit('onRemoteSeekBackward', { interval });
+  }
+
+  emitRemoteSeekTo(position: number): void {
+    this.emit('onRemoteSeekTo', { position });
+  }
+
+  emitRemoteNextTrack(): void {
+    this.emit('onRemoteNextTrack');
+  }
+
+  emitRemotePreviousTrack(): void {
+    this.emit('onRemotePreviousTrack');
   }
 
   _isCrossOrigin(): boolean {

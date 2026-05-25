@@ -32,6 +32,14 @@ enum LockScreenButton {
    * Seek 10s back button
    */
   SEEK_BACKWARD = 1,
+  /**
+   * Next track button
+   */
+  NEXT_TRACK = 2,
+  /**
+   * Previous track button
+   */
+  PREVIOUS_TRACK = 3,
 }
 
 export default function AudioControlsScreen(props: any) {
@@ -71,6 +79,22 @@ function AudioPlayer({ source }: { source: AudioSource | string | number }) {
   const [enabled, setEnabled] = useState(false);
   const [metadata, setMetadata] = useState<1 | 2>(1);
   const [options, setOptions] = useState<AudioLockScreenOptions>();
+  const [remoteNextTrackCount, setRemoteNextTrackCount] = useState(0);
+  const [remotePreviousTrackCount, setRemotePreviousTrackCount] = useState(0);
+
+  React.useEffect(() => {
+    const nextTrackSubscription = player.addListener('onRemoteNextTrack', () => {
+      setRemoteNextTrackCount((count) => count + 1);
+    });
+    const previousTrackSubscription = player.addListener('onRemotePreviousTrack', () => {
+      setRemotePreviousTrackCount((count) => count + 1);
+    });
+
+    return () => {
+      nextTrackSubscription.remove();
+      previousTrackSubscription.remove();
+    };
+  }, [player]);
 
   const setIsMuted = (isMuted: boolean) => {
     player.muted = isMuted;
@@ -96,6 +120,12 @@ function AudioPlayer({ source }: { source: AudioSource | string | number }) {
         break;
       case LockScreenButton.SEEK_BACKWARD:
         setOptions((o) => ({ ...o, showSeekBackward: !o?.showSeekBackward }));
+        break;
+      case LockScreenButton.NEXT_TRACK:
+        setOptions((o) => ({ ...o, showNextTrack: !o?.showNextTrack }));
+        break;
+      case LockScreenButton.PREVIOUS_TRACK:
+        setOptions((o) => ({ ...o, showPreviousTrack: !o?.showPreviousTrack }));
         break;
     }
   };
@@ -154,6 +184,20 @@ function AudioPlayer({ source }: { source: AudioSource | string | number }) {
         </View>
         <View style={styles.optionRow}>
           <Checkbox
+            value={options?.showNextTrack}
+            onValueChange={() => toggleButton(LockScreenButton.NEXT_TRACK)}
+          />
+          <Text style={styles.optionsText}>Next track</Text>
+        </View>
+        <View style={styles.optionRow}>
+          <Checkbox
+            value={options?.showPreviousTrack}
+            onValueChange={() => toggleButton(LockScreenButton.PREVIOUS_TRACK)}
+          />
+          <Text style={styles.optionsText}>Previous track</Text>
+        </View>
+        <View style={styles.optionRow}>
+          <Checkbox
             value={options?.isLiveStream ?? false}
             onValueChange={() => setOptions((o) => ({ ...o, isLiveStream: !o?.isLiveStream }))}
           />
@@ -168,6 +212,8 @@ function AudioPlayer({ source }: { source: AudioSource | string | number }) {
               : 'null'}
           </Text>
           <Text style={styles.statusText}>error: {status.error ?? 'null'}</Text>
+          <Text style={styles.statusText}>onRemoteNextTrack: {remoteNextTrackCount}</Text>
+          <Text style={styles.statusText}>onRemotePreviousTrack: {remotePreviousTrackCount}</Text>
         </View>
         <Button
           title="Update Metadata"

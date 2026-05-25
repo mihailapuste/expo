@@ -7,10 +7,13 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 
 @OptIn(UnstableApi::class)
-class AudioMediaSessionCallback : MediaSession.Callback {
+class AudioMediaSessionCallback(
+  private val onCustomAction: ((String) -> Unit)? = null
+) : MediaSession.Callback {
   override fun onConnect(
     session: MediaSession,
     controller: MediaSession.ControllerInfo
@@ -35,6 +38,8 @@ class AudioMediaSessionCallback : MediaSession.Callback {
           MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
             .add(SessionCommand(AudioControlsService.ACTION_SEEK_BACKWARD, Bundle.EMPTY))
             .add(SessionCommand(AudioControlsService.ACTION_SEEK_FORWARD, Bundle.EMPTY))
+            .add(SessionCommand(AudioControlsService.ACTION_NEXT_TRACK, Bundle.EMPTY))
+            .add(SessionCommand(AudioControlsService.ACTION_PREVIOUS_TRACK, Bundle.EMPTY))
             .build()
         )
         .build()
@@ -49,14 +54,21 @@ class AudioMediaSessionCallback : MediaSession.Callback {
     command: SessionCommand,
     args: Bundle
   ): ListenableFuture<SessionResult> {
-    when (command.customAction) {
+    return when (command.customAction) {
       AudioControlsService.ACTION_SEEK_FORWARD -> {
         session.player.seekTo(session.player.currentPosition + AudioControlsService.SEEK_INTERVAL_MS)
+        Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
       }
       AudioControlsService.ACTION_SEEK_BACKWARD -> {
         session.player.seekTo(session.player.currentPosition - AudioControlsService.SEEK_INTERVAL_MS)
+        Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
       }
+      AudioControlsService.ACTION_NEXT_TRACK,
+      AudioControlsService.ACTION_PREVIOUS_TRACK -> {
+        onCustomAction?.invoke(command.customAction)
+        Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+      }
+      else -> super.onCustomCommand(session, controller, command, args)
     }
-    return super.onCustomCommand(session, controller, command, args)
   }
 }

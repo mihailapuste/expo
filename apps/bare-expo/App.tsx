@@ -1,10 +1,10 @@
 import { ThemeProvider } from 'ThemeProvider';
 import BenchmarkHelper from 'benchmark-helper';
-import { ObserveRoot } from 'expo-observe';
+import * as DevMenu from 'expo-dev-menu';
+import ExpoObserve, { ObserveRoot } from 'expo-observe';
 import * as Splashscreen from 'expo-splash-screen';
 import React from 'react';
-import * as DevMenu from 'expo-dev-menu';
-import ExpoObserve from 'expo-observe';
+import { Platform } from 'react-native';
 
 import MainNavigator, { optionalRequire } from './MainNavigator';
 
@@ -15,22 +15,24 @@ try {
   // do nothing
 }
 
-DevMenu.registerDevMenuItems([
-  {
-    name: 'Action 1',
-    callback: () => {
-      console.log('Action 1 executed');
+if (Platform.OS !== 'web') {
+  DevMenu.registerDevMenuItems([
+    {
+      name: 'Action 1',
+      callback: () => {
+        console.log('Action 1 executed');
+      },
+      shouldCollapse: true,
     },
-    shouldCollapse: true,
-  },
-  {
-    name: 'Action 2',
-    callback: () => {
-      console.log('Action 2 executed');
+    {
+      name: 'Action 2',
+      callback: () => {
+        console.log('Action 2 executed');
+      },
+      shouldCollapse: false,
     },
-    shouldCollapse: false,
-  },
-]);
+  ]);
+}
 
 Splashscreen.setOptions({ fade: true, duration: 800 });
 

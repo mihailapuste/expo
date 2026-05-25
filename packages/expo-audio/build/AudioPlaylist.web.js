@@ -259,7 +259,7 @@ export class AudioPlaylistWeb extends globalThis.expo.SharedObject {
         }
         this._currentIndex = newIndex;
         this._isLoaded = false;
-        this._isBuffering = true;
+        this._isBuffering = wasPlaying;
         this._knownDuration = 0;
         const isNextSequential = newIndex === (previousIndex + 1) % this._sources.length;
         if (this._nextMedia && isNextSequential) {
@@ -342,6 +342,10 @@ export class AudioPlaylistWeb extends globalThis.expo.SharedObject {
                 this._knownDuration = duration;
             }
         }
+        if (media.readyState >= 2) {
+            this._isLoaded = true;
+            this._isBuffering = false;
+        }
         media.ontimeupdate = () => {
             const now = media.currentTime;
             if (now < lastEmitTime) {
@@ -403,6 +407,7 @@ export class AudioPlaylistWeb extends globalThis.expo.SharedObject {
     _createMediaElement(source) {
         const uri = getSourceUri(source);
         const media = new Audio(uri);
+        media.preload = 'auto';
         if (this._crossOrigin !== undefined) {
             media.crossOrigin = this._crossOrigin;
         }
