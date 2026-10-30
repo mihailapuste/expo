@@ -25,6 +25,14 @@ export const AudioScreens = [
     },
   },
   {
+    name: 'Expo Audio Playlist Lock Screen Controls',
+    route: 'audio/expo-audio-playlist-controls',
+    options: {},
+    getComponent() {
+      return optionalRequire(() => require('./AudioPlaylistLockScreenControlsScreen'));
+    },
+  },
+  {
     name: 'Expo Audio Recording',
     route: 'audio/expo-audio-recording',
     options: {},

@@ -269,6 +269,12 @@ public class AudioModule: Module {
         }
       }
 
+      Function("updateLockScreenPlaybackInfo") { (player: AudioPlayer, playbackInfo: LockScreenPlaybackInfo) in
+        if player.isActiveForLockScreen {
+          MediaController.shared.updateNowPlayingPlaybackInfo(for: player, playbackInfo: playbackInfo)
+        }
+      }
+
       Function("clearLockScreenControls") { (player: AudioPlayer) in
         if player.isActiveForLockScreen {
           player.metadata = nil

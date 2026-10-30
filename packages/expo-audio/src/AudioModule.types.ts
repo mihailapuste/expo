@@ -20,6 +20,20 @@ import type { AudioLockScreenOptions } from './AudioConstants';
 import type { AudioStream } from './AudioStream.types';
 
 /**
+ * Playback values to display in native lock screen controls or browser Media Session controls.
+ * @hidden
+ * @platform ios
+ * @platform web
+ */
+export type AudioLockScreenPlaybackInfo = {
+  currentTime: number;
+  duration: number;
+  isPlaying: boolean;
+  playbackRate: number;
+  isLiveStream?: boolean;
+};
+
+/**
  * @hidden
  */
 export declare class NativeAudioModule extends NativeModule {
@@ -233,6 +247,14 @@ export declare class AudioPlayer extends SharedObject<AudioEvents> {
   updateLockScreenMetadata(metadata: AudioMetadata): void;
 
   /**
+   * Updates playback position displayed in native lock screen controls or browser Media Session controls.
+   * @hidden
+   * @platform ios
+   * @platform web
+   */
+  updateLockScreenPlaybackInfo(playbackInfo: AudioLockScreenPlaybackInfo): void;
+
+  /**
    * Removes this player from lock screen controls if it's currently active.
    * This will clear the lock screen's now playing info.
    */
@@ -280,6 +302,55 @@ export type AudioEvents = {
   playbackStatusUpdate(status: AudioStatus): void;
   /** Fired when audio sampling is enabled and new sample data is available. */
   audioSampleUpdate(data: AudioSample): void;
+  /**
+   * Fired when the play command is triggered from the lock screen.
+   * @platform ios
+   * @platform web
+   */
+  onRemotePlay(): void;
+  /**
+   * Fired when the pause command is triggered from the lock screen.
+   * @platform ios
+   * @platform web
+   */
+  onRemotePause(): void;
+  /**
+   * Fired when the toggle play/pause command is triggered from the lock screen.
+   * @platform ios
+   */
+  onRemoteTogglePlayPause(): void;
+  /**
+   * Fired when the seek forward command is triggered from the lock screen.
+   * @platform ios
+   * @platform web
+   */
+  onRemoteSeekForward(data: { interval: number }): void;
+  /**
+   * Fired when the seek backward command is triggered from the lock screen.
+   * @platform ios
+   * @platform web
+   */
+  onRemoteSeekBackward(data: { interval: number }): void;
+  /**
+   * Fired when the playback position is changed from the lock screen.
+   * @platform ios
+   * @platform web
+   */
+  onRemoteSeekTo(data: { position: number }): void;
+  /**
+   * Fired when the next track command is triggered from the lock screen.
+   * @platform android
+   * @platform ios
+   * @platform web
+   */
+  onRemoteNextTrack(): void;
+  /**
+   * Fired when the previous track command is triggered from the lock screen.
+   * @platform android
+   * @platform ios
+   * @platform web
+   */
+  onRemotePreviousTrack(): void;
 };
 
 export declare class AudioRecorder extends SharedObject<RecordingEvents> {

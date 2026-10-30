@@ -4,6 +4,14 @@ import Combine
 private enum AudioConstants {
   static let playbackStatus = "playbackStatusUpdate"
   static let audioSample = "audioSampleUpdate"
+  static let remotePlay = "onRemotePlay"
+  static let remotePause = "onRemotePause"
+  static let remoteTogglePlayPause = "onRemoteTogglePlayPause"
+  static let remoteSeekForward = "onRemoteSeekForward"
+  static let remoteSeekBackward = "onRemoteSeekBackward"
+  static let remoteSeekTo = "onRemoteSeekTo"
+  static let remoteNextTrack = "onRemoteNextTrack"
+  static let remotePreviousTrack = "onRemotePreviousTrack"
 }
 
 public class AudioPlayer: SharedRef<AVPlayer>, Playable {
@@ -162,6 +170,38 @@ public class AudioPlayer: SharedRef<AVPlayer>, Playable {
     } else {
       MediaController.shared.setActivePlayer(nil)
     }
+  }
+
+  func emitRemoteNextTrack() {
+    emit(event: AudioConstants.remoteNextTrack)
+  }
+
+  func emitRemotePreviousTrack() {
+    emit(event: AudioConstants.remotePreviousTrack)
+  }
+
+  func emitRemotePlay() {
+    emit(event: AudioConstants.remotePlay)
+  }
+
+  func emitRemotePause() {
+    emit(event: AudioConstants.remotePause)
+  }
+
+  func emitRemoteTogglePlayPause() {
+    emit(event: AudioConstants.remoteTogglePlayPause)
+  }
+
+  func emitRemoteSeekForward(interval: Double) {
+    emit(event: AudioConstants.remoteSeekForward, payload: ["interval": interval])
+  }
+
+  func emitRemoteSeekBackward(interval: Double) {
+    emit(event: AudioConstants.remoteSeekBackward, payload: ["interval": interval])
+  }
+
+  func emitRemoteSeekTo(position: Double) {
+    emit(event: AudioConstants.remoteSeekTo, payload: ["position": position])
   }
 
   func updateStatus(with dict: [String: Any]) {

@@ -1,6 +1,6 @@
 import type { AudioMetadata, AudioPlayerOptions, AudioSource, AudioStatus, PitchCorrectionQuality } from './Audio.types';
 import type { AudioLockScreenOptions } from './AudioConstants';
-import type { AudioPlayer, AudioEvents } from './AudioModule.types';
+import type { AudioPlayer, AudioEvents, AudioLockScreenPlaybackInfo } from './AudioModule.types';
 export declare const activePlayers: Set<AudioPlayerWeb>;
 export declare class AudioPlayerWeb extends globalThis.expo.SharedObject<AudioEvents> implements AudioPlayer {
     constructor(source: AudioSource, options?: AudioPlayerOptions);
@@ -45,7 +45,15 @@ export declare class AudioPlayerWeb extends globalThis.expo.SharedObject<AudioEv
     release(): void;
     setActiveForLockScreen(active: boolean, metadata?: AudioMetadata, options?: AudioLockScreenOptions): void;
     updateLockScreenMetadata(metadata: AudioMetadata): void;
+    updateLockScreenPlaybackInfo(playbackInfo: AudioLockScreenPlaybackInfo): void;
     clearLockScreenControls(): void;
+    emitRemotePlay(): void;
+    emitRemotePause(): void;
+    emitRemoteSeekForward(interval: number): void;
+    emitRemoteSeekBackward(interval: number): void;
+    emitRemoteSeekTo(position: number): void;
+    emitRemoteNextTrack(): void;
+    emitRemotePreviousTrack(): void;
     _isCrossOrigin(): boolean;
     _createMediaElement(): HTMLAudioElement;
 }
